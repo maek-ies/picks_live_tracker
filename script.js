@@ -1618,7 +1618,7 @@ const [showModelPicks, setShowModelPicks] = useState(false);
                 }`
               },
                 React.createElement("span", { className: `w-2 h-2 rounded-full ${includeLiveGames ? 'bg-white animate-pulse' : 'bg-slate-500'}` }),
-                includeLiveGames ? 'Incl. Live Games' : 'Final Games Only'
+                includeLiveGames ? 'Incl. Live Games' : 'Final Only'
               ),
               React.createElement("select", { onChange: (e) => setSelectedWeek(parseInt(e.target.value)), value: selectedWeek, className: "bg-slate-700 text-white rounded-lg px-3 py-2" },
                 weeks.map(w => React.createElement("option", { key: w.week, value: w.week }, `Week ${w.week}`))
