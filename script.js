@@ -218,16 +218,71 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
   }, [confidenceResults, selectedWeek, pointsPerWeekDisplayMode, maxPointsPerWeek, players, allWeeks]);
 
   const weeks = processedConfidenceResults[players[0]]?.pointsPerWeek.map(p => p.week) || [];
-  const maxPoints = pointsPerWeekDisplayMode === 'absolute' ? Math.max(1, ...Object.values(processedConfidenceResults).flatMap(p => p.pointsPerWeek.map(w => w.points))) : 100;
+  
+  const allPoints = Object.values(processedConfidenceResults).flatMap(p => p.pointsPerWeek.map(w => w.points));
+  const dataMin = allPoints.length > 0 ? Math.min(...allPoints) : 0;
+  const dataMax = allPoints.length > 0 ? Math.max(...allPoints) : 1;
+  const buffer = (dataMax - dataMin) * 0.1 || 1;
+  const chartMin = dataMin - buffer;
+  const chartMax = dataMax + buffer;
 
   const chartWidth = 800;
   const chartHeight = isMobile ? 800 : 400;
-  const padding = 50;
+  const padding = 70;
+  const rightMargin = 70;
 
-  const xScale = (week) => padding + (week - 1) * (chartWidth - 2 * padding) / (weeks.length > 1 ? weeks.length - 1 : 1);
-  const yScale = (points) => chartHeight - padding - (points / maxPoints) * (chartHeight - 2 * padding);
+  const plotAreaWidth = chartWidth - padding - rightMargin;
+  const xScale = (week) => padding + (week - 1) * (plotAreaWidth) / (weeks.length > 1 ? weeks.length - 1 : 1);
+  const yScale = (points) => chartHeight - padding - ((points - chartMin) / (chartMax - chartMin)) * (chartHeight - 2 * padding);
 
   const colors = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#a855f7", "#F0E442"];
+
+  const finalLabels = React.useMemo(() => {
+    if (players.length === 0 || weeks.length === 0) return [];
+
+    const initialLabels = players.map((player, playerIndex) => {
+      const playerPoints = processedConfidenceResults[player]?.pointsPerWeek;
+      if (!playerPoints || playerPoints.length === 0) return null;
+      
+      const lastPoint = playerPoints[playerPoints.length - 1];
+      return {
+        player,
+        value: lastPoint.points,
+        idealY: yScale(lastPoint.points),
+        finalY: yScale(lastPoint.points),
+        color: colors[playerIndex % colors.length]
+      };
+    }).filter(Boolean);
+
+    initialLabels.sort((a, b) => a.idealY - b.idealY);
+
+    const minSpacing = 16;
+    for (let i = 1; i < initialLabels.length; i++) {
+      const prevLabel = initialLabels[i - 1];
+      const currentLabel = initialLabels[i];
+      
+      const requiredY = prevLabel.finalY + minSpacing;
+      if (currentLabel.finalY < requiredY) {
+        currentLabel.finalY = requiredY;
+      }
+    }
+    
+    const maxChartY = chartHeight - padding;
+    for (let i = initialLabels.length - 1; i >= 0; i--) {
+        if (initialLabels[i].finalY > maxChartY) {
+            initialLabels[i].finalY = maxChartY;
+            if (i > 0) {
+                const prevLabel = initialLabels[i-1];
+                const requiredY = initialLabels[i].finalY - minSpacing;
+                if(prevLabel.finalY > requiredY) {
+                    prevLabel.finalY = requiredY;
+                }
+            }
+        }
+    }
+
+    return initialLabels;
+  }, [processedConfidenceResults, players, selectedWeek, weeks, chartMin, chartMax]);
 
   const handleMouseMove = (e) => {
     const svgRect = e.currentTarget.getBoundingClientRect();
@@ -272,8 +327,18 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
         onMouseMove: handleMouseMove,
         onMouseLeave: handleMouseLeave
       },
+        // Legend
+        React.createElement("g", { transform: `translate(${padding}, ${padding / 2})`}, 
+            players.map((player, playerIndex) => (
+              React.createElement("g", { key: player, transform: `translate(${playerIndex * 110}, 0)` },
+                React.createElement("rect", { x: 0, y: -10, width: 10, height: 10, fill: colors[playerIndex % colors.length] }),
+                React.createElement("text", { x: 15, y: 0, fill: "#94a3b8", className: "chart-text" }, player)
+              )
+            ))
+        ),
+
         // X-axis
-        React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
+        React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: plotAreaWidth + padding, y2: chartHeight - padding, stroke: "#64748b" }),
         weeks.map(week => (
           React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, `W${week}`)
         )),
@@ -281,20 +346,39 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
         // Y-axis
         React.createElement("line", { x1: padding, y1: padding, x2: padding, y2: chartHeight - padding, stroke: "#64748b" }),
         Array.from({ length: 5 }).map((_, i) => {
-          const points = Math.round(maxPoints / 4 * i);
-          return React.createElement("text", { key: i, x: padding - 10, y: yScale(points), fill: "#94a3b8", textAnchor: "end", className: "chart-text" }, `${points}${pointsPerWeekDisplayMode !== 'absolute' ? '%' : ''}`);
+          const range = chartMax - chartMin;
+          const points = chartMin + (i * range / 4);
+          const displayPoints = pointsPerWeekDisplayMode === 'absolute' ? Math.round(points) : points.toFixed(1);
+          return React.createElement("text", { key: i, x: padding - 10, y: yScale(points), fill: "#94a3b8", textAnchor: "end", className: "chart-text" }, `${displayPoints}${pointsPerWeekDisplayMode !== 'absolute' ? '%' : ''}`);
         }),
 
         // Lines
-        players.map((player, playerIndex) => (
-          processedConfidenceResults[player] && React.createElement("polyline", {
-            key: player,
+        players.map((player, playerIndex) => {
+          const playerPoints = processedConfidenceResults[player]?.pointsPerWeek;
+          if (!playerPoints || playerPoints.length === 0) return null;
+          
+          return React.createElement("polyline", {
+            key: `${player}-line`,
             fill: "none",
             stroke: colors[playerIndex % colors.length],
-            strokeWidth: 2,
-            points: processedConfidenceResults[player].pointsPerWeek.map(d => `${xScale(d.week)},${yScale(d.points)}`).join(' ')
-          })
-        )),
+            strokeWidth: 4,
+            points: playerPoints.map(d => `${xScale(d.week)},${yScale(d.points)}`).join(' ')
+          });
+        }),
+
+        // Labels
+        finalLabels.map(label => {
+          const displayValue = pointsPerWeekDisplayMode === 'absolute' ? Math.round(label.value) : `${label.value.toFixed(1)}%`;
+          return React.createElement("text", {
+            key: `${label.player}-label`,
+            x: plotAreaWidth + padding + 10,
+            y: label.finalY,
+            fill: label.color,
+            className: "chart-text",
+            textAnchor: "start",
+            alignmentBaseline: "middle"
+          }, displayValue);
+        }),
 
         // Active point
         activePoint && React.createElement("g", null,
@@ -302,15 +386,7 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
           React.createElement("rect", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 130 : activePoint.x + 10, y: activePoint.y - 20, width: 120, height: 40, fill: "#1e293b", stroke: activePoint.color, rx: 5 }),
           React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y - 5, fill: "#fff", className: "chart-text" }, `${activePoint.player}`),
           React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y + 10, fill: "#94a3b8", className: "chart-text" }, `W${activePoint.week}: ${activePoint.points.toFixed(pointsPerWeekDisplayMode !== 'absolute' ? 1 : 0)}${pointsPerWeekDisplayMode !== 'absolute' ? '%' : ' pts'}`)
-        ),
-
-        // Legend
-        players.map((player, playerIndex) => (
-          React.createElement("g", { key: player, transform: `translate(${chartWidth - 100}, ${padding + playerIndex * 20})` },
-            React.createElement("rect", { x: 0, y: 0, width: 10, height: 10, fill: colors[playerIndex % colors.length] }),
-            React.createElement("text", { x: 15, y: 10, fill: "#94a3b8", className: "chart-text" }, player)
-          )
-        ))
+        )
       )
     )
   );
@@ -452,16 +528,71 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
   });
 
   const weeks = filteredConfidenceResults[players[0]]?.pointsPerWeek.map(p => p.week) || [];
-  const maxPoints = Math.max(1, ...Object.values(filteredConfidenceResults).flatMap(p => p.pointsPerWeek.map(w => Math.abs(w.relativePoints))));
+  
+  const allPoints = Object.values(filteredConfidenceResults).flatMap(p => p.pointsPerWeek.map(w => w.relativePoints));
+  const dataMin = allPoints.length > 0 ? Math.min(...allPoints) : 0;
+  const dataMax = allPoints.length > 0 ? Math.max(...allPoints) : 1;
+  const buffer = (dataMax - dataMin) * 0.1 || 1;
+  const chartMin = dataMin - buffer;
+  const chartMax = dataMax + buffer;
 
   const chartWidth = 800;
   const chartHeight = isMobile ? 800 : 400;
-  const padding = 50;
+  const padding = 60;
+  const rightMargin = 70;
 
-  const xScale = (week) => padding + (week - 1) * (chartWidth - 2 * padding) / (weeks.length > 1 ? weeks.length - 1 : 1);
-  const yScale = (points) => chartHeight - padding - ((points + maxPoints) / (maxPoints * 2)) * (chartHeight - 2 * padding);
+  const plotAreaWidth = chartWidth - padding - rightMargin;
+  const xScale = (week) => padding + (week - 1) * (plotAreaWidth) / (weeks.length > 1 ? weeks.length - 1 : 1);
+  const yScale = (points) => chartHeight - padding - ((points - chartMin) / (chartMax - chartMin)) * (chartHeight - 2 * padding);
 
   const colors = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#a855f7", "#F0E442"];
+
+  const finalLabels = React.useMemo(() => {
+    if (players.length === 0 || weeks.length === 0) return [];
+
+    const initialLabels = players.map((player, playerIndex) => {
+      const playerPoints = filteredConfidenceResults[player]?.pointsPerWeek;
+      if (!playerPoints || playerPoints.length === 0) return null;
+      
+      const lastPoint = playerPoints[playerPoints.length - 1];
+      return {
+        player,
+        value: lastPoint.relativePoints,
+        idealY: yScale(lastPoint.relativePoints),
+        finalY: yScale(lastPoint.relativePoints),
+        color: colors[playerIndex % colors.length]
+      };
+    }).filter(Boolean);
+
+    initialLabels.sort((a, b) => a.idealY - b.idealY);
+
+    const minSpacing = 16;
+    for (let i = 1; i < initialLabels.length; i++) {
+      const prevLabel = initialLabels[i - 1];
+      const currentLabel = initialLabels[i];
+      
+      const requiredY = prevLabel.finalY + minSpacing;
+      if (currentLabel.finalY < requiredY) {
+        currentLabel.finalY = requiredY;
+      }
+    }
+    
+    const maxChartY = chartHeight - padding;
+    for (let i = initialLabels.length - 1; i >= 0; i--) {
+        if (initialLabels[i].finalY > maxChartY) {
+            initialLabels[i].finalY = maxChartY;
+            if (i > 0) {
+                const prevLabel = initialLabels[i-1];
+                const requiredY = initialLabels[i].finalY - minSpacing;
+                if(prevLabel.finalY > requiredY) {
+                    prevLabel.finalY = requiredY;
+                }
+            }
+        }
+    }
+
+    return initialLabels;
+  }, [filteredConfidenceResults, players, selectedWeek, weeks, chartMin, chartMax]);
 
   const handleMouseMove = (e) => {
     const svgRect = e.currentTarget.getBoundingClientRect();
@@ -506,8 +637,18 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
         onMouseMove: handleMouseMove,
         onMouseLeave: handleMouseLeave
       },
+        // Legend
+        React.createElement("g", { transform: `translate(${padding}, ${padding / 2})`}, 
+            players.map((player, playerIndex) => (
+              React.createElement("g", { key: player, transform: `translate(${playerIndex * 110}, 0)` },
+                React.createElement("rect", { x: 0, y: -10, width: 10, height: 10, fill: colors[playerIndex % colors.length] }),
+                React.createElement("text", { x: 15, y: 0, fill: "#94a3b8", className: "chart-text" }, player)
+              )
+            ))
+        ),
+
         // X-axis
-        React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
+        React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: plotAreaWidth + padding, y2: chartHeight - padding, stroke: "#64748b" }),
         weeks.map(week => (
           React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, `W${week}`)
         )),
@@ -515,19 +656,36 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
         // Y-axis
         React.createElement("line", { x1: padding, y1: padding, x2: padding, y2: chartHeight - padding, stroke: "#64748b" }),
         Array.from({ length: 5 }).map((_, i) => {
-          const points = Math.round(-maxPoints + (i * maxPoints / 2));
+          const range = chartMax - chartMin;
+          const points = Math.round(chartMin + (i * range / 4));
           return React.createElement("text", { key: i, x: padding - 10, y: yScale(points), fill: "#94a3b8", textAnchor: "end", className: "chart-text" }, points);
         }),
 
         // Lines
-        players.map((player, playerIndex) => (
-          filteredConfidenceResults[player] && React.createElement("polyline", {
-            key: player,
+        players.map((player, playerIndex) => {
+          const playerPoints = filteredConfidenceResults[player]?.pointsPerWeek;
+          if (!playerPoints || playerPoints.length === 0) return null;
+          
+          return React.createElement("polyline", {
+            key: `${player}-line`,
             fill: "none",
             stroke: colors[playerIndex % colors.length],
-            strokeWidth: 2,
-            points: filteredConfidenceResults[player].pointsPerWeek.map(d => `${xScale(d.week)},${yScale(d.relativePoints)}`).join(' ')
-          })
+            strokeWidth: 4,
+            points: playerPoints.map(d => `${xScale(d.week)},${yScale(d.relativePoints)}`).join(' ')
+          });
+        }),
+
+        // Labels
+        finalLabels.map(label => (
+          React.createElement("text", {
+            key: `${label.player}-label`,
+            x: plotAreaWidth + padding + 10,
+            y: label.finalY,
+            fill: label.color,
+            className: "chart-text",
+            textAnchor: "start",
+            alignmentBaseline: "middle"
+          }, label.value)
         )),
 
         // Active point
@@ -536,15 +694,7 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
           React.createElement("rect", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 130 : activePoint.x + 10, y: activePoint.y - 20, width: 120, height: 40, fill: "#1e293b", stroke: activePoint.color, rx: 5 }),
           React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y - 5, fill: "#fff", className: "chart-text" }, `${activePoint.player}`),
           React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y + 10, fill: "#94a3b8", className: "chart-text" }, `W${activePoint.week}: ${activePoint.relativePoints} pts`)
-        ),
-
-        // Legend
-        players.map((player, playerIndex) => (
-          React.createElement("g", { key: player, transform: `translate(${chartWidth - 100}, ${padding + playerIndex * 20})` },
-            React.createElement("rect", { x: 0, y: 0, width: 10, height: 10, fill: colors[playerIndex % colors.length] }),
-            React.createElement("text", { x: 15, y: 10, fill: "#94a3b8", className: "chart-text" }, player)
-          )
-        ))
+        )
       )
     )
   );
