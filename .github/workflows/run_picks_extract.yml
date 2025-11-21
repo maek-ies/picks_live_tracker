@@ -19,7 +19,7 @@ on:
     # Monday 02:20 AM CET (01:20 UTC in winter, 00:20 UTC in summer)
     - cron: '20 1 * * 1'
     # Tuesday 02:15 AM CET (01:15 UTC in winter, 00:15 UTC in summer)
-    - cron: '15 1 * * 2'
+    - cron: '13 1 * * 2'
 
 jobs:
   extract_picks:
