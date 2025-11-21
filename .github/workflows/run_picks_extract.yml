@@ -9,8 +9,9 @@ on:
     # Thursday 02:15 AM CET (01:15 UTC in winter, 00:15 UTC in summer)
     - cron: '15 1 * * 4'
     # Sunday 15:30 CET (14:30 UTC in winter, 13:30 UTC in summer)
-    - cron: '30 14 * * 0'
+    #- cron: '30 14 * * 0'
     # Sunday 19:00 CET (18:00 UTC in winter, 17:00 UTC in summer)
+    - cron: '50 17 * * 0'
     - cron: '0 18 * * 0'
     # Sunday 22:05 CET (21:05 UTC in winter, 20:05 UTC in summer)
     - cron: '5 21 * * 0'
