@@ -1,5 +1,424 @@
 const { useState, useEffect, useCallback } = React;
 
+const fpiDataJson = [
+  {
+    "Team": "Kansas City Chiefs",
+    "W-L-T": "5-5-0",
+    "FPI": 7.3,
+    "Rank": 1,
+    "Trend": "--",
+    "OFF": 5.4,
+    "DEF": 2.1,
+    "STS": -0.2,
+    "SOS": 6,
+    "REM SOS": 21,
+    "AVG WP": 8
+  },
+  {
+    "Team": "Los Angeles Rams",
+    "W-L-T": "8-2-0",
+    "FPI": 5.0,
+    "Rank": 2,
+    "Trend": "1",
+    "OFF": 3.1,
+    "DEF": 2.0,
+    "STS": 0.0,
+    "SOS": 7,
+    "REM SOS": 16,
+    "AVG WP": 2
+  },
+  {
+    "Team": "Detroit Lions",
+    "W-L-T": "6-4-0",
+    "FPI": 4.9,
+    "Rank": 3,
+    "Trend": "1",
+    "OFF": 3.1,
+    "DEF": 1.4,
+    "STS": 0.4,
+    "SOS": 5,
+    "REM SOS": 17,
+    "AVG WP": 7
+  },
+  {
+    "Team": "Indianapolis Colts",
+    "W-L-T": "8-2-0",
+    "FPI": 4.7,
+    "Rank": 4,
+    "Trend": "--",
+    "OFF": 4.7,
+    "DEF": -0.7,
+    "STS": 0.8,
+    "SOS": 31,
+    "REM SOS": 1,
+    "AVG WP": 3
+  },
+  {
+    "Team": "Philadelphia Eagles",
+    "W-L-T": "8-2-0",
+    "FPI": 4.7,
+    "Rank": 5,
+    "Trend": "--",
+    "OFF": 1.2,
+    "DEF": 3.3,
+    "STS": 0.1,
+    "SOS": 3,
+    "REM SOS": 18,
+    "AVG WP": 5
+  },
+  {
+    "Team": "Green Bay Packers",
+    "W-L-T": "6-3-1",
+    "FPI": 4.4,
+    "Rank": 6,
+    "Trend": "1",
+    "OFF": 3.8,
+    "DEF": 0.6,
+    "STS": -0.1,
+    "SOS": 22,
+    "REM SOS": 15,
+    "AVG WP": 6
+  },
+  {
+    "Team": "Baltimore Ravens",
+    "W-L-T": "5-5-0",
+    "FPI": 4.2,
+    "Rank": 7,
+    "Trend": "1",
+    "OFF": 3.4,
+    "DEF": 0.7,
+    "STS": 0.1,
+    "SOS": 9,
+    "REM SOS": 22,
+    "AVG WP": 16
+  },
+  {
+    "Team": "Buffalo Bills",
+    "W-L-T": "7-3-0",
+    "FPI": 3.9,
+    "Rank": 8,
+    "Trend": "--",
+    "OFF": 4.2,
+    "DEF": -0.1,
+    "STS": -0.2,
+    "SOS": 30,
+    "REM SOS": 23,
+    "AVG WP": 11
+  },
+  {
+    "Team": "Seattle Seahawks",
+    "W-L-T": "7-3-0",
+    "FPI": 3.7,
+    "Rank": 9,
+    "Trend": "--",
+    "OFF": 0.6,
+    "DEF": 2.2,
+    "STS": 1.0,
+    "SOS": 15,
+    "REM SOS": 24,
+    "AVG WP": 1
+  },
+  {
+    "Team": "San Francisco 49ers",
+    "W-L-T": "7-4-0",
+    "FPI": 3.3,
+    "Rank": 10,
+    "Trend": "3",
+    "OFF": 4.6,
+    "DEF": -1.5,
+    "STS": 0.2,
+    "SOS": 17,
+    "REM SOS": 28,
+    "AVG WP": 15
+  },
+  {
+    "Team": "Denver Broncos",
+    "W-L-T": "9-2-0",
+    "FPI": 2.4,
+    "Rank": 11,
+    "Trend": "--",
+    "OFF": -0.8,
+    "DEF": 3.3,
+    "STS": -0.1,
+    "SOS": 24,
+    "REM SOS": 11,
+    "AVG WP": 12
+  },
+  {
+    "Team": "Houston Texans",
+    "W-L-T": "5-5-0",
+    "FPI": 2.1,
+    "Rank": 12,
+    "Trend": "5",
+    "OFF": -1.2,
+    "DEF": 2.8,
+    "STS": 0.4,
+    "SOS": 18,
+    "REM SOS": 3,
+    "AVG WP": 18
+  },
+  {
+    "Team": "Los Angeles Chargers",
+    "W-L-T": "7-4-0",
+    "FPI": 1.2,
+    "Rank": 13,
+    "Trend": "3",
+    "OFF": -0.7,
+    "DEF": 1.8,
+    "STS": 0.1,
+    "SOS": 27,
+    "REM SOS": 5,
+    "AVG WP": 13
+  },
+  {
+    "Team": "Tampa Bay Buccaneers",
+    "W-L-T": "6-4-0",
+    "FPI": 0.8,
+    "Rank": 14,
+    "Trend": "2",
+    "OFF": 0.9,
+    "DEF": 0.1,
+    "STS": -0.2,
+    "SOS": 10,
+    "REM SOS": 31,
+    "AVG WP": 19
+  },
+  {
+    "Team": "Dallas Cowboys",
+    "W-L-T": "4-5-1",
+    "FPI": 0.5,
+    "Rank": 15,
+    "Trend": "1",
+    "OFF": 3.1,
+    "DEF": -3.0,
+    "STS": 0.4,
+    "SOS": 26,
+    "REM SOS": 6,
+    "AVG WP": 20
+  },
+  {
+    "Team": "New England Patriots",
+    "W-L-T": "9-2-0",
+    "FPI": 0.5,
+    "Rank": 16,
+    "Trend": "2",
+    "OFF": 1.2,
+    "DEF": -0.7,
+    "STS": -0.0,
+    "SOS": 32,
+    "REM SOS": 25,
+    "AVG WP": 4
+  },
+  {
+    "Team": "Pittsburgh Steelers",
+    "W-L-T": "6-4-0",
+    "FPI": 0.5,
+    "Rank": 17,
+    "Trend": "1",
+    "OFF": -0.3,
+    "DEF": 0.2,
+    "STS": 0.6,
+    "SOS": 20,
+    "REM SOS": 10,
+    "AVG WP": 10
+  },
+  {
+    "Team": "Jacksonville Jaguars",
+    "W-L-T": "6-4-0",
+    "FPI": -0.1,
+    "Rank": 18,
+    "Trend": "1",
+    "OFF": -0.5,
+    "DEF": 0.1,
+    "STS": 0.3,
+    "SOS": 4,
+    "REM SOS": 29,
+    "AVG WP": 9
+  },
+  {
+    "Team": "New York Giants",
+    "W-L-T": "2-9-0",
+    "FPI": -1.5,
+    "Rank": 19,
+    "Trend": "4",
+    "OFF": 1.1,
+    "DEF": -2.7,
+    "STS": 0.0,
+    "SOS": 1,
+    "REM SOS": 20,
+    "AVG WP": 23
+  },
+  {
+    "Team": "Chicago Bears",
+    "W-L-T": "7-3-0",
+    "FPI": -1.6,
+    "Rank": 20,
+    "Trend": "--",
+    "OFF": -0.9,
+    "DEF": -0.6,
+    "STS": -0.1,
+    "SOS": 29,
+    "REM SOS": 2,
+    "AVG WP": 14
+  },
+  {
+    "Team": "Washington Commanders",
+    "W-L-T": "3-8-0",
+    "FPI": -2.5,
+    "Rank": 21,
+    "Trend": "--",
+    "OFF": -0.6,
+    "DEF": -1.9,
+    "STS": 0.0,
+    "SOS": 12,
+    "REM SOS": 12,
+    "AVG WP": 28
+  },
+  {
+    "Team": "Atlanta Falcons",
+    "W-L-T": "3-7-0",
+    "FPI": -2.7,
+    "Rank": 22,
+    "Trend": "1",
+    "OFF": -1.8,
+    "DEF": -0.6,
+    "STS": -0.3,
+    "SOS": 21,
+    "REM SOS": 27,
+    "AVG WP": 21
+  },
+  {
+    "Team": "Minnesota Vikings",
+    "W-L-T": "4-6-0",
+    "FPI": -2.9,
+    "Rank": 23,
+    "Trend": "1",
+    "OFF": -4.3,
+    "DEF": 1.5,
+    "STS": -0.2,
+    "SOS": 14,
+    "REM SOS": 4,
+    "AVG WP": 25
+  },
+  {
+    "Team": "Miami Dolphins",
+    "W-L-T": "4-7-0",
+    "FPI": -3.1,
+    "Rank": 24,
+    "Trend": "--",
+    "OFF": -1.4,
+    "DEF": -2.0,
+    "STS": 0.2,
+    "SOS": 19,
+    "REM SOS": 30,
+    "AVG WP": 22
+  },
+  {
+    "Team": "Arizona Cardinals",
+    "W-L-T": "3-7-0",
+    "FPI": -3.2,
+    "Rank": 25,
+    "Trend": "1",
+    "OFF": -2.4,
+    "DEF": -0.4,
+    "STS": -0.5,
+    "SOS": 15,
+    "REM SOS": 8,
+    "AVG WP": 17
+  },
+  {
+    "Team": "Carolina Panthers",
+    "W-L-T": "6-5-0",
+    "FPI": -4.4,
+    "Rank": 26,
+    "Trend": "1",
+    "OFF": -2.7,
+    "DEF": -1.5,
+    "STS": -0.2,
+    "SOS": 28,
+    "REM SOS": 9,
+    "AVG WP": 24
+  },
+  {
+    "Team": "Cincinnati Bengals",
+    "W-L-T": "3-7-0",
+    "FPI": -4.7,
+    "Rank": 27,
+    "Trend": "2",
+    "OFF": -1.2,
+    "DEF": -3.6,
+    "STS": 0.2,
+    "SOS": 25,
+    "REM SOS": 13,
+    "AVG WP": 29
+  },
+  {
+    "Team": "Las Vegas Raiders",
+    "W-L-T": "2-8-0",
+    "FPI": -5.7,
+    "Rank": 28,
+    "Trend": "--",
+    "OFF": -5.9,
+    "DEF": 0.5,
+    "STS": -0.2,
+    "SOS": 11,
+    "REM SOS": 7,
+    "AVG WP": 26
+  },
+  {
+    "Team": "New Orleans Saints",
+    "W-L-T": "2-8-0",
+    "FPI": -6.5,
+    "Rank": 29,
+    "Trend": "--",
+    "OFF": -4.7,
+    "DEF": -0.9,
+    "STS": -1.0,
+    "SOS": 8,
+    "REM SOS": 32,
+    "AVG WP": 31
+  },
+  {
+    "Team": "New York Jets",
+    "W-L-T": "2-8-0",
+    "FPI": -7.4,
+    "Rank": 30,
+    "Trend": "--",
+    "OFF": -5.5,
+    "DEF": -2.5,
+    "STS": 0.6,
+    "SOS": 23,
+    "REM SOS": 19,
+    "AVG WP": 30
+  },
+  {
+    "Team": "Tennessee Titans",
+    "W-L-T": "1-9-0",
+    "FPI": -9.2,
+    "Rank": 31,
+    "Trend": "--",
+    "OFF": -6.5,
+    "DEF": -2.5,
+    "STS": -0.3,
+    "SOS": 2,
+    "REM SOS": 14,
+    "AVG WP": 32
+  },
+  {
+    "Team": "Cleveland Browns",
+    "W-L-T": "2-8-0",
+    "FPI": -9.4,
+    "Rank": 32,
+    "Trend": "--",
+    "OFF": -11.4,
+    "DEF": 2.4,
+    "STS": -0.4,
+    "SOS": 13,
+    "REM SOS": 26,
+    "AVG WP": 27
+  }
+];
+
 const convertOddsToProbability = (odds) => {
   if (typeof odds === 'string') {
     if (odds.toUpperCase() === 'EVEN') {
@@ -133,28 +552,43 @@ const calculateGameConfidence = (games) => {
 
 const teamAbbreviations = {
   "Kansas City Chiefs": "KC",
-  "Denver Broncos": "DEN",
-  "Green Bay Packers": "GB",
-  "Detroit Lions": "DET",
-  "Philadelphia Eagles": "PHI",
-  "Washington Commanders": "WAS",
-  "Arizona Cardinals": "ARI",
-  "Seattle Seahawks": "SEA",
-  "New York Giants": "NYG",
-  "Las Vegas Raiders": "LV",
-  "Dallas Cowboys": "DAL",
-  "Buffalo Bills": "BUF",
-  "New England Patriots": "NE",
-  "San Francisco 49ers": "SF",
-  "Tampa Bay Buccaneers": "TB",
   "Los Angeles Rams": "LAR",
+  "Detroit Lions": "DET",
+  "Indianapolis Colts": "IND",
+  "Philadelphia Eagles": "PHI",
+  "Green Bay Packers": "GB",
   "Baltimore Ravens": "BAL",
-  "Miami Dolphins": "MIA",
-  "Cincinnati Bengals": "CIN",
-  "Cleveland Browns": "CLE",
-  "Atlanta Falcons": "ATL",
+  "Buffalo Bills": "BUF",
+  "Seattle Seahawks": "SEA",
+  "San Francisco 49ers": "SF",
+  "Denver Broncos": "DEN",
+  "Houston Texans": "HOU",
+  "Los Angeles Chargers": "LAC",
+  "Tampa Bay Buccaneers": "TB",
+  "Dallas Cowboys": "DAL",
+  "New England Patriots": "NE",
   "Pittsburgh Steelers": "PIT",
+  "Jacksonville Jaguars": "JAX",
+  "New York Giants": "NYG",
+  "Chicago Bears": "CHI",
+  "Washington Commanders": "WSH",
+  "Atlanta Falcons": "ATL",
+  "Minnesota Vikings": "MIN",
+  "Miami Dolphins": "MIA",
+  "Arizona Cardinals": "ARI",
+  "Carolina Panthers": "CAR",
+  "Cincinnati Bengals": "CIN",
+  "Las Vegas Raiders": "LV",
+  "New Orleans Saints": "NO",
+  "New York Jets": "NYJ",
+  "Tennessee Titans": "TEN",
+  "Cleveland Browns": "CLE"
 };
+
+const fullTeamNames = Object.entries(teamAbbreviations).reduce((acc, [key, value]) => {
+  acc[value] = key;
+  return acc;
+}, {});
 
 function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, gamesOfTheWeek, pointsPerWeekDisplayMode }) {
   const [activePoint, setActivePoint] = useState(null);
@@ -1211,35 +1645,61 @@ function NFLScoresTracker() {
   const [deviationSortConfig, setDeviationSortConfig] = useState({ key: null, direction: 'ascending' });
   const [playerSortConfig, setPlayerSortConfig] = useState({ key: null, direction: 'ascending' });
   const [showLogos, setShowLogos] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-const [showModelPicks, setShowModelPicks] = useState(false);
-  const [activeChartTab, setActiveChartTab] = useState('cumulative-points');
-  const [pointsPerWeekDisplayMode, setPointsPerWeekDisplayMode] = useState('absolute');
-  const [gotwDisplayMode, setGotwDisplayMode] = useState('absolute');
-  const [showDisagreement, setShowDisagreement] = useState('hidden'); // 'hidden', 'wp', 'confidence'
-
-  const transformEspnData = (data) => {
-    return data.events.map(event => {
-      const competition = event.competitions[0];
-      const homeTeam = competition.competitors.find(t => t.homeAway === 'home');
-      const awayTeam = competition.competitors.find(t => t.homeAway === 'away');
-
-      return {
-        id: parseInt(event.id),
-        date: event.date,
-        home: homeTeam.team.abbreviation,
-        away: awayTeam.team.abbreviation,
-        status: event.status.type.state,
-        winner: (event.status.type.state === 'post' || event.status.type.state === 'final')
-          ? (parseInt(homeTeam.score) > parseInt(awayTeam.score) ? homeTeam.team.abbreviation : (parseInt(awayTeam.score) > parseInt(homeTeam.score) ? awayTeam.team.abbreviation : null))
-          : null,
-        homeScore: parseInt(homeTeam.score),
-        awayScore: parseInt(awayTeam.score),
-        displayClock: event.status.type.detail, // Assuming this path for clock
-        period: event.status.period, // Assuming this path for period
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [showModelPicks, setShowModelPicks] = useState(false);
+    const [activeChartTab, setActiveChartTab] = useState('cumulative-points');
+    const [pointsPerWeekDisplayMode, setPointsPerWeekDisplayMode] = useState('absolute');
+      const [gotwDisplayMode, setGotwDisplayMode] = useState('absolute');
+      const [showDisagreement, setShowDisagreement] = useState('hidden'); // 'hidden', 'wp', 'confidence'
+      const [fpiData, setFpiData] = useState({});
+      const [matchupQualitySortConfig, setMatchupQualitySortConfig] = useState({ key: null, direction: 'ascending' });    
+      const transformEspnData = (data, fpiDataMap) => {
+        return data.events.map(event => {
+          const competition = event.competitions[0];
+          const homeTeam = competition.competitors.find(t => t.homeAway === 'home');
+          const awayTeam = competition.competitors.find(t => t.homeAway === 'away');
+    
+                            const homeTeamFpi = fpiDataMap[fullTeamNames[homeTeam.team.abbreviation]];
+    
+                            const awayTeamFpi = fpiDataMap[fullTeamNames[awayTeam.team.abbreviation]];
+    
+                      
+    
+                            if (homeTeamFpi === undefined) {
+    
+                              console.log(`FPI not found for home team: ${homeTeam.team.abbreviation}`);
+    
+                            }
+    
+                            if (awayTeamFpi === undefined) {
+    
+                              console.log(`FPI not found for away team: ${awayTeam.team.abbreviation}`);
+    
+                            }
+    
+                      
+    
+                            const matchupQuality = (homeTeamFpi !== undefined && awayTeamFpi !== undefined)
+    
+                              ? (homeTeamFpi + awayTeamFpi) / 2
+    
+                              : null;          return {
+            id: parseInt(event.id),
+            date: event.date,
+            home: homeTeam.team.abbreviation,
+            away: awayTeam.team.abbreviation,
+            status: event.status.type.state,
+            winner: (event.status.type.state === 'post' || event.status.type.state === 'final')
+              ? (parseInt(homeTeam.score) > parseInt(awayTeam.score) ? homeTeam.team.abbreviation : (parseInt(awayTeam.score) > parseInt(homeTeam.score) ? awayTeam.team.abbreviation : null))
+              : null,
+            homeScore: parseInt(homeTeam.score),
+            awayScore: parseInt(awayTeam.score),
+            displayClock: event.status.type.detail, // Assuming this path for clock
+            period: event.status.period, // Assuming this path for period
+            matchupQuality: matchupQuality
+          };
+        });
       };
-    });
-  };
 
   const fetchScores = async () => {
     setLoading(true);
@@ -1249,10 +1709,16 @@ const [showModelPicks, setShowModelPicks] = useState(false);
       const gamesOfTheWeekIds = gamesOfTheWeekResponse.split(",").map(id => parseInt(id.trim())).filter(id => !isNaN(id));
       setGamesOfTheWeek(gamesOfTheWeekIds);
 
+      const fpiDataMap = fpiDataJson.reduce((map, team) => {
+        map[team.Team] = team.FPI;
+        return map;
+      }, {});
+      setFpiData(fpiDataMap);
+
       const weekPromises = Array.from({ length: 18 }, (_, i) => i + 1).map(weekNum =>
         fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${weekNum}`)
           .then(res => res.json())
-          .then(data => ({ week: weekNum, games: transformEspnData(data) }))
+          .then(data => ({ week: weekNum, games: transformEspnData(data, fpiDataMap) }))
       );
       const allWeeks = await Promise.all(weekPromises);
       setWeeks(allWeeks);
@@ -1368,7 +1834,7 @@ const [showModelPicks, setShowModelPicks] = useState(false);
       // 1. Fetch scoreboard for the selected week
       const weekResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${weekNumber}`);
       const data = await weekResponse.json();
-      const refreshedGames = transformEspnData(data);
+      const refreshedGames = transformEspnData(data, fpiData);
 
       // 2. Fetch summary data for games in that week
       const gamesWithSummaryPromises = refreshedGames.map(async (game) => {
@@ -1930,6 +2396,14 @@ const [showModelPicks, setShowModelPicks] = useState(false);
                       }},
                           "Dev",
                           deviationSortConfig.key === 'dev' && (deviationSortConfig.direction === 'ascending' ? ' \u25B2' : ' \u25BC')
+                      ),
+                      React.createElement("th", { className: "px-2 py-1 text-left text-white font-semibold text-xs cursor-pointer sticky top-0 bg-slate-800 z-10", onClick: () => {
+                        setPlayerSortConfig({ key: null, direction: 'ascending' });
+                        setDeviationSortConfig({ key: null, direction: 'ascending' });
+                        setMatchupQualitySortConfig(current => ({ key: 'gq', direction: current.key === 'gq' && current.direction === 'ascending' ? 'descending' : 'ascending' }));
+                      }},
+                          "GQ",
+                          matchupQualitySortConfig.key === 'gq' && (matchupQualitySortConfig.direction === 'ascending' ? ' \u25B2' : ' \u25BC')
                       )
                     )
                   ),
@@ -1961,6 +2435,18 @@ const [showModelPicks, setShowModelPicks] = useState(false);
                                               return deviationSortConfig.direction === 'ascending' ? 1 : -1;
                                           }
                                         }
+
+                                        if (matchupQualitySortConfig.key === 'gq') {
+                                            const aGQ = a.matchupQuality || -Infinity; // Treat null/N/A as lowest for ascending
+                                            const bGQ = b.matchupQuality || -Infinity;
+                                            if (aGQ < bGQ) {
+                                                return matchupQualitySortConfig.direction === 'ascending' ? -1 : 1;
+                                            }
+                                            if (aGQ > bGQ) {
+                                                return matchupQualitySortConfig.direction === 'ascending' ? 1 : -1;
+                                            }
+                                        }
+
 
                                         if (aIsLive && !bIsLive) return -1; // a (live) comes before b (not live)
                                         if (!aIsLive && bIsLive) return 1;  // b (live) comes before a (not live)
@@ -2046,6 +2532,12 @@ const [showModelPicks, setShowModelPicks] = useState(false);
                                         trChildren.push(
                                           React.createElement("td", { className: "px-2 py-0 text-white" },
                                             (deviationData.find(d => d.gameId === game.id) && !isNaN(deviationData.find(d => d.gameId === game.id).avgDeviation)) ? deviationData.find(d => d.gameId === game.id).avgDeviation.toFixed(1) : ""
+                                          )
+                                        );
+
+                                        trChildren.push(
+                                          React.createElement("td", { className: "px-2 py-0 text-white" },
+                                            game.matchupQuality ? game.matchupQuality.toFixed(1) : "N/A"
                                           )
                                         );
 
