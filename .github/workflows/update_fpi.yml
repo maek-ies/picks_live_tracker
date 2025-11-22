@@ -33,7 +33,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: fpi_data_json
-          path: fpi_data.json  
+          path: data/fpi_data.json  
 
 
   ci2:
