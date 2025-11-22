@@ -1,0 +1,38 @@
+name: Update FPI Data
+
+on:
+  schedule:
+    - cron: '0 0 * * 2' # Run every Tuesday at midnight
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  update-fpi:
+    runs-on: ubuntu-latest
+    container:
+      image: rocker/r2u:latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v3
+
+      - name: Install system dependencies
+        run: apt-get update && apt-get install -y --no-install-recommends libgit2-dev
+
+      - name: Install R dependencies
+        run: |
+          install.packages(c("data.table", "jsonlite", "remotes"))
+        shell: Rscript {0}
+
+      - name: Install espnscrapeR
+        run: R -q -e 'remotes::install_github("jthomasmock/espnscrapeR")'
+
+      - name: Run FPI data update script
+        run: Rscript update_fpi_data.R
+
+      - name: Commit and push if changed
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          git add data/fpi_data.json
+          # Commit only if there are changes
+          git diff --staged --quiet || git commit -m "Update FPI data"
+          git push

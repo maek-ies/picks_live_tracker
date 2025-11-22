@@ -21,6 +21,7 @@ on:
     - cron: '20 1 * * 1'
     # Tuesday 02:15 AM CET (01:15 UTC in winter, 00:15 UTC in summer)
     - cron: '13 1 * * 2'
+   workflow_dispatch: # Allow manual trigger
 
 jobs:
   extract_picks:
