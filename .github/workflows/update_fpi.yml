@@ -30,7 +30,22 @@ jobs:
 
       - name: Run FPI data update script
         run: Rscript update_fpi_data.R
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fpi_data_json
+          path: fpi_data.json  
 
+
+ci2:
+    runs-on: ubuntu-latest
+    needs: update-fpi
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v4
+        with:      
+          name: fpi_data_json
       - name: Commit report
         run: |
           git config --global user.name 'Your Name'
@@ -41,3 +56,4 @@ jobs:
           git add -A
           git commit -m "save commit"
           git push --force
+
