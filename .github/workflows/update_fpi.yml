@@ -36,7 +36,7 @@ jobs:
           path: fpi_data.json  
 
 
-ci2:
+  ci2:
     runs-on: ubuntu-latest
     needs: update-fpi
     permissions:
