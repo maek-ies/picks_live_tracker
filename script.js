@@ -862,9 +862,10 @@ function GamesOfTheWeekPointsChart({ confidenceResults, allPicks, weeks, gamesOf
             let value;
             switch (gotwDisplayMode) {
                 case 'points_percentage':
-                    const possiblePoints = gamesOfTheWeek.reduce((acc, gameId) => {
-                        const pick = allPicks[player]?.find(p => p.gameId === gameId);
-                        return acc + (pick ? pick.confidence + 5 : 0);
+                    const playedGotwGames = weeks.flatMap(w => w.games).filter(g => gamesOfTheWeek.includes(g.id) && (g.status === 'final' || g.status === 'post' || (includeLiveGames && (g.status === 'in' || g.status === 'live'))));
+                    const possiblePoints = playedGotwGames.reduce((acc, game) => {
+                        const pick = allPicks[player]?.find(p => p.gameId === game.id);
+                        return acc + (pick ? Number(pick.confidence) + 5 : 0);
                     }, 0);
                     value = possiblePoints > 0 ? (confidenceResults[player].gotwPoints / possiblePoints) * 100 : 0;
                     break;
@@ -955,8 +956,8 @@ function GamesOfTheWeekPointsChart({ confidenceResults, allPicks, weeks, gamesOf
     );
 }
 
-function GamesOfTheWeekPointsTable({ mockPicks, weeks, gamesOfTheWeek, includeLiveGames }) {
-    const players = Object.keys(mockPicks);
+function GamesOfTheWeekPointsTable({ allPicks, confidenceResults, weeks, gamesOfTheWeek, includeLiveGames }) {
+    const players = Object.keys(confidenceResults);
 
     const gotwGames = weeks.flatMap(weekData =>
         weekData.games
@@ -983,12 +984,12 @@ function GamesOfTheWeekPointsTable({ mockPicks, weeks, gamesOfTheWeek, includeLi
                             React.createElement("td", { className: "px-1 py-1 text-white" }, game.week),
                             React.createElement("td", { className: "px-1 py-1 text-white" }, `${game.away} @ ${game.home}`),
                             players.map(player => {
-                                const playerPicks = mockPicks[player];
-                                const pick = playerPicks.find(p => p.gameId === game.id);
+                                const playerPicks = allPicks[player];
+                                const pick = playerPicks?.find(p => p.gameId === game.id);
                                 if (!pick) return React.createElement("td", { key: player, className: "px-1 py-1 text-center text-slate-300" }, "-");
 
                                 const isComplete = game.status === 'final' || game.status === 'post';
-                                const isLiveGame = game.status === 'in' || game.status === 'live';
+                                const isLiveGame = includeLiveGames && (game.status === 'in' || game.status === 'live');
 
                                 let winner = null;
                                 if (isComplete) {
@@ -1003,7 +1004,7 @@ function GamesOfTheWeekPointsTable({ mockPicks, weeks, gamesOfTheWeek, includeLi
 
                                 let points = 0;
                                 if ((isComplete || (includeLiveGames && isLiveGame)) && isCorrect) {
-                                    points = pick.confidence + 5;
+                                    points = Number(pick.confidence) + 5;
                                 }
 
                                 return React.createElement("td", { key: player, className: "px-1 py-1 text-center text-slate-300" }, points);
@@ -2003,7 +2004,7 @@ function NFLScoresTracker() {
                               gamesOfTheWeek: gamesOfTheWeek,
                               includeLiveGames: includeLiveGames,
                               gotwDisplayMode: gotwDisplayMode
-                            }),              React.createElement(GamesOfTheWeekPointsTable, { mockPicks: mockPicks, weeks: weeks, gamesOfTheWeek: gamesOfTheWeek, includeLiveGames: includeLiveGames })
+                            }),              React.createElement(GamesOfTheWeekPointsTable, { allPicks: allPlayerPicks, confidenceResults: confidenceResults, weeks: weeks, gamesOfTheWeek: gamesOfTheWeek, includeLiveGames: includeLiveGames })
             )
           )
         ) : activeTab === 'odds' ? (
