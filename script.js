@@ -1552,7 +1552,7 @@ function NFLScoresTracker() {
       setIsRefreshing(false);
       setLastUpdate(new Date());
     }
-  }, []);
+  }, [fpiData]);
 
   useEffect(() => {
     fetchScores(); // Initial fetch
