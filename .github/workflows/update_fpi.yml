@@ -8,8 +8,8 @@ on:
 jobs:
   update-fpi:
     runs-on: ubuntu-latest
-    container:
-      image: rocker/r2u:latest
+    #container:
+    #  image: rocker/r2u:latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v3
