@@ -19,11 +19,12 @@ jobs:
 
       - name: Install R dependencies
         run: |
-          install.packages(c("data.table", "jsonlite", "remotes"))
+          install.packages(c("data.table", "jsonlite", "pak"))
         shell: Rscript {0}
 
       - name: Install espnscrapeR
-        run: R -q -e 'remotes::install_github("jthomasmock/espnscrapeR")'
+        #run: R -q -e 'remotes::install_github("jthomasmock/espnscrapeR")'
+        run: R -q -e 'pak::pkg_install('jthomasmock/espnscrapeR')
 
       - name: Run FPI data update script
         run: Rscript update_fpi_data.R
