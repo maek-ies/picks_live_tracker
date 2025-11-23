@@ -884,7 +884,7 @@ function GamesOfTheWeekPointsChart({ confidenceResults, allPicks, weeks, gamesOf
                     value = confidenceResults[player].gotwPoints;
                     break;
             }
-            return { player, value };
+            return { player, value , potential: remainingPossible };
         });
 
         // Sort data
@@ -925,7 +925,7 @@ function GamesOfTheWeekPointsChart({ confidenceResults, allPicks, weeks, gamesOf
                 }), */
 
                 // Bars
-                chartData.map(({ player, value }, index) => {
+                chartData.map(({ player, value, potential }, index) => {
                     const barWidth = (chartWidth - 2 * padding) / chartData.length / 2;
                     const barX = xScale(index) - barWidth / 2;
                     const barHeight = chartHeight - padding - yScale(value);
@@ -1050,6 +1050,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
       let value = 0;
       const playerWeekPoints = confidenceResults[player]?.pointsPerWeek.find(p => p.week === selectedWeek);
       const playerCorrectPicks = confidenceResults[player]?.correctPicksPerWeek.find(p => p.week === selectedWeek);
+      const remainingPossible = confidenceResults[player]?.remainingPossible || 0;
 
       switch (weekPointsDisplayMode) {
         case 'absolute':
@@ -1070,7 +1071,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
         default:
           break;
       }
-      return { player, value };
+      return { player, value , potential: remainingPossible };
     });
 
     if (weekPointsDisplayMode === 'vs_leader') {
@@ -1108,9 +1109,9 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
   const isVsMode = weekPointsDisplayMode === 'vs_leader' || weekPointsDisplayMode === 'vs_total_leader';
 
   const dataMax = isVsMode
-    ? Math.max(0, ...chartData.map(d => d.value))
+    ? Math.max(0, ...chartData.map(d => d.value + (d.potential || 0)))
     : (weekPointsDisplayMode === 'absolute'
-        ? Math.max(1, ...chartData.map(d => d.value))
+        ? Math.max(1, ...chartData.map(d => d.value + (d.potential || 0)))
         : 100);
 
   const dataMin = isVsMode
@@ -1157,7 +1158,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
         React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
         isVsMode && React.createElement("line", { x1: padding, y1: yScale(0), x2: chartWidth - padding, y2: yScale(0), stroke: "#64748b", strokeDasharray: "5,5" }),
 
-        chartData.map(({ player, value }, index) => {
+        chartData.map(({ player, value, potential }, index) => {
             const yPos = chartHeight - padding + 20;
             return React.createElement("text", {
                 key: player,
@@ -1194,7 +1195,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
             }, `${labelValue}${weekPointsDisplayMode !== 'absolute' && !isVsMode ? '%' : ''}`);
         }),
 
-        chartData.map(({ player, value }, index) => {
+        chartData.map(({ player, value, potential }, index) => {
             const playerIndex = players.indexOf(player);
             const color = colors[playerIndex % colors.length];
 
@@ -1224,6 +1225,17 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
                         fill: color,
                         rx: 4 
                     }),
+                    // Potential points bar (stacked on top)
+                    (potential && potential > 0 && (weekPointsDisplayMode === 'absolute' || isVsMode)) ? React.createElement("rect", {
+                        x: barX,
+                        y: isVsMode ? (value >= 0 ? yScale(value + potential) : yScale(0) - yScale(potential)) : yScale(value + potential),
+                        width: barWidth,
+                        height: isVsMode ? (value >= 0 ? yScale(value) - yScale(value + potential) : yScale(potential) - yScale(0)) : yScale(value) - yScale(value + potential),
+                        fill: "transparent",
+                        stroke: color,
+                        strokeWidth: 2,
+                        rx: 4
+                    }) : null,
                     React.createElement("text", {
                         x: barX + barWidth / 2,
                         y: barY + (value < 0 ? Math.abs(barHeight) + 15 : -5),
