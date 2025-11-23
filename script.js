@@ -884,7 +884,7 @@ function GamesOfTheWeekPointsChart({ confidenceResults, allPicks, weeks, gamesOf
                     value = confidenceResults[player].gotwPoints;
                     break;
             }
-            return { player, value , potential: remainingPossible };
+            return { player, value};
         });
 
         // Sort data
