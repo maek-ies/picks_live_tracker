@@ -1089,26 +1089,52 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
     }
 
     if (weekPointsDisplayMode === 'vs_total_leader') {
-        let totalLeader = '';
+        let totalLeaderName = '';
         let maxTotalPoints = -1;
 
         players.forEach(player => {
             const playerWeekData = confidenceResults[player]?.pointsPerWeek.find(p => p.week === selectedWeek);
             if (playerWeekData && playerWeekData.cumulativePoints > maxTotalPoints) {
                 maxTotalPoints = playerWeekData.cumulativePoints;
-                totalLeader = player;
+                totalLeaderName = player;
             }
         });
 
-        const totalLeaderWeeklyPoints = confidenceResults[totalLeader]?.pointsPerWeek.find(p => p.week === selectedWeek)?.points || 0;
+        // Find the total leader's data for the current week from the 'data' array
+        const totalLeaderData = data.find(d => d.player === totalLeaderName);
+        const totalLeaderWeeklyPoints = totalLeaderData?.value || 0;
+        const totalLeaderPotential = totalLeaderData?.potential || 0;
+        const leaderTotalPotential = totalLeaderWeeklyPoints + totalLeaderPotential;
 
-        data = data.map(d => ({ ...d, value: d.value - totalLeaderWeeklyPoints }));
+        data = data.map(d => {
+            const playerTotalPotential = (d.value || 0) + (d.potential || 0);
+            return {
+                ...d,
+                value: (d.value || 0) - totalLeaderWeeklyPoints, // Relative earned points
+                potential_top: playerTotalPotential - leaderTotalPotential // Relative total potential
+            }
+        });
     }
 
-    // Sort by earned points difference in vs modes, otherwise by absolute value
-    if (weekPointsDisplayMode === 'vs_leader' || weekPointsDisplayMode === 'vs_total_leader') {
-        data.sort((a, b) => b.value - a.value);
+    if (weekPointsDisplayMode === 'vs_total_leader') {
+        // Find leader name again to use for sorting
+        let totalLeaderName = '';
+        let maxTotalPoints = -1;
+        players.forEach(player => {
+            const playerWeekData = confidenceResults[player]?.pointsPerWeek.find(p => p.week === selectedWeek);
+            if (playerWeekData && playerWeekData.cumulativePoints > maxTotalPoints) {
+                maxTotalPoints = playerWeekData.cumulativePoints;
+                totalLeaderName = player;
+            }
+        });
+        
+        data.sort((a, b) => {
+            if (a.player === totalLeaderName) return -1;
+            if (b.player === totalLeaderName) return 1;
+            return b.value - a.value;
+        });
     } else {
+        // For all other modes, sort by value descending
         data.sort((a, b) => b.value - a.value);
     }
 
@@ -1130,16 +1156,15 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
 
   const { chartMin, chartMax } = React.useMemo(() => {
     const range = dataMax - dataMin;
-    // Increased buffer to 20% of the range, with a minimum of 10 points
-    const buffer = range > 0 ? range * 0.2 : 10; 
+    // New, more aggressive buffer: 20% of the range PLUS a fixed 10 points.
+    const buffer = (range * 0.2) + 10; 
 
     if (isVsMode) {
       return { chartMin: dataMin - buffer, chartMax: dataMax + buffer };
     }
     if (weekPointsDisplayMode === 'absolute') {
-      return { chartMin: dataMin, chartMax: dataMax + buffer }; // dataMin is 0 here
+      return { chartMin: dataMin, chartMax: dataMax + buffer };
     }
-    // For percentage modes, no buffer is needed.
     return { chartMin: dataMin, chartMax: dataMax };
   }, [dataMin, dataMax, isVsMode, weekPointsDisplayMode]);
 
