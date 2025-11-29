@@ -587,6 +587,7 @@ function WeeklyPointsTable({ confidenceResults, weeks: allWeeks, gamesOfTheWeek,
 function CumulativePointsChart({ confidenceResults, selectedWeek }) {
   const [activePoint, setActivePoint] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showPotential, setShowPotential] = useState(true);
 
   useEffect(() => {
     const handleResize = () => {
@@ -610,9 +611,17 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
 
   const weeks = filteredConfidenceResults[players[0]]?.pointsPerWeek.map(p => p.week) || [];
   
-  const allPoints = Object.values(filteredConfidenceResults).flatMap(p => p.pointsPerWeek.map(w => w.relativePoints));
-  const dataMin = allPoints.length > 0 ? Math.min(...allPoints) : 0;
-  const dataMax = allPoints.length > 0 ? Math.max(...allPoints) : 1;
+  const allPoints = React.useMemo(() => {
+    const points = Object.values(filteredConfidenceResults).flatMap(p => p.pointsPerWeek.map(w => w.relativePoints));
+    if (showPotential) {
+        const potentialPoints = Object.values(filteredConfidenceResults).flatMap(p => p.pointsPerWeek.map(w => w.relativePotentialPoints));
+        return points.concat(potentialPoints);
+    }
+    return points;
+  }, [filteredConfidenceResults, showPotential]);
+
+  const dataMin = allPoints.length > 0 ? Math.min(...allPoints.filter(p => isFinite(p))) : 0;
+  const dataMax = allPoints.length > 0 ? Math.max(...allPoints.filter(p => isFinite(p))) : 1;
   const buffer = (dataMax - dataMin) * 0.1 || 1;
   const chartMin = dataMin - buffer;
   const chartMax = dataMax + buffer;
@@ -711,70 +720,94 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
   };
 
   return (
-    React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
-      React.createElement("svg", {
-        viewBox: `0 0 ${chartWidth} ${chartHeight}`,
-        className: "w-full h-auto",
-        onMouseMove: handleMouseMove,
-        onMouseLeave: handleMouseLeave
-      },
-        // Legend
-        React.createElement("g", { transform: `translate(${padding}, ${padding / 2})`}, 
-            players.map((player, playerIndex) => (
-              React.createElement("g", { key: player, transform: `translate(${playerIndex * 110}, 0)` },
-                React.createElement("rect", { x: 0, y: -10, width: 10, height: 10, fill: colors[playerIndex % colors.length] }),
-                React.createElement("text", { x: 15, y: 0, fill: "#94a3b8", className: "chart-text" }, player)
-              )
-            ))
-        ),
+    React.createElement(React.Fragment, null,
+      React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
+        React.createElement("svg", {
+          viewBox: `0 0 ${chartWidth} ${chartHeight}`,
+          className: "w-full h-auto",
+          onMouseMove: handleMouseMove,
+          onMouseLeave: handleMouseLeave
+        },
+          // Legend
+          React.createElement("g", { transform: `translate(${padding}, ${padding / 2})`}, 
+              players.map((player, playerIndex) => (
+                React.createElement("g", { key: player, transform: `translate(${playerIndex * 110}, 0)` },
+                  React.createElement("rect", { x: 0, y: -10, width: 10, height: 10, fill: colors[playerIndex % colors.length] }),
+                  React.createElement("text", { x: 15, y: 0, fill: "#94a3b8", className: "chart-text" }, player)
+                )
+              ))
+          ),
 
-        // X-axis
-        React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: plotAreaWidth + padding, y2: chartHeight - padding, stroke: "#64748b" }),
-        weeks.map(week => (
-          React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, `W${week}`)
-        )),
+          // X-axis
+          React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: plotAreaWidth + padding, y2: chartHeight - padding, stroke: "#64748b" }),
+          weeks.map(week => (
+            React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, `W${week}`)
+          )),
 
-        // Y-axis
-        React.createElement("line", { x1: padding, y1: padding, x2: padding, y2: chartHeight - padding, stroke: "#64748b" }),
-        Array.from({ length: 5 }).map((_, i) => {
-          const range = chartMax - chartMin;
-          const points = Math.round(chartMin + (i * range / 4));
-          return React.createElement("text", { key: i, x: padding - 10, y: yScale(points), fill: "#94a3b8", textAnchor: "end", className: "chart-text" }, points);
-        }),
+          // Y-axis
+          React.createElement("line", { x1: padding, y1: padding, x2: padding, y2: chartHeight - padding, stroke: "#64748b" }),
+          Array.from({ length: 5 }).map((_, i) => {
+            const range = chartMax - chartMin;
+            const points = Math.round(chartMin + (i * range / 4));
+            return React.createElement("text", { key: i, x: padding - 10, y: yScale(points), fill: "#94a3b8", textAnchor: "end", className: "chart-text" }, points);
+          }),
 
-        // Lines
-        players.map((player, playerIndex) => {
-          const playerPoints = filteredConfidenceResults[player]?.pointsPerWeek;
-          if (!playerPoints || playerPoints.length === 0) return null;
-          
-          return React.createElement("polyline", {
-            key: `${player}-line`,
-            fill: "none",
-            stroke: colors[playerIndex % colors.length],
-            strokeWidth: 4,
-            points: playerPoints.map(d => `${xScale(d.week)},${yScale(d.relativePoints)}`).join(' ')
-          });
-        }),
+          // Lines
+          players.map((player, playerIndex) => {
+            const playerPoints = filteredConfidenceResults[player]?.pointsPerWeek;
+            if (!playerPoints || playerPoints.length === 0) return null;
+            
+            return React.createElement(React.Fragment, { key: player },
+              React.createElement("polyline", {
+                key: `${player}-line-earned`,
+                fill: "none",
+                stroke: colors[playerIndex % colors.length],
+                strokeWidth: 4,
+                points: playerPoints.map(d => `${xScale(d.week)},${yScale(d.relativePoints)}`).join(' ')
+              }),
+              showPotential && React.createElement("polyline", {
+                key: `${player}-line-potential`,
+                fill: "none",
+                stroke: colors[playerIndex % colors.length],
+                strokeWidth: 4,
+                strokeDasharray: "5,5",
+                points: playerPoints.map(d => isFinite(d.relativePotentialPoints) ? `${xScale(d.week)},${yScale(d.relativePotentialPoints)}` : '').join(' ')
+              })
+            );
+          }),
 
-        // Labels
-        finalLabels.map(label => (
-          React.createElement("text", {
-            key: `${label.player}-label`,
-            x: plotAreaWidth + padding + 10,
-            y: label.finalY,
-            fill: label.color,
-            className: "chart-text",
-            textAnchor: "start",
-            alignmentBaseline: "middle"
-          }, label.value)
-        )),
+          // Labels
+          finalLabels.map(label => (
+            React.createElement("text", {
+              key: `${label.player}-label`,
+              x: plotAreaWidth + padding + 10,
+              y: label.finalY,
+              fill: label.color,
+              className: "chart-text",
+              textAnchor: "start",
+              alignmentBaseline: "middle"
+            }, label.value)
+          )),
 
-        // Active point
-        activePoint && React.createElement("g", null,
-          React.createElement("circle", { cx: activePoint.x, cy: activePoint.y, r: 5, fill: activePoint.color }),
-          React.createElement("rect", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 130 : activePoint.x + 10, y: activePoint.y - 20, width: 120, height: 40, fill: "#1e293b", stroke: activePoint.color, rx: 5 }),
-          React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y - 5, fill: "#fff", className: "chart-text" }, `${activePoint.player}`),
-          React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y + 10, fill: "#94a3b8", className: "chart-text" }, `W${activePoint.week}: ${activePoint.relativePoints} pts`)
+          // Active point
+          activePoint && React.createElement("g", null,
+            React.createElement("circle", { cx: activePoint.x, cy: activePoint.y, r: 5, fill: activePoint.color }),
+            React.createElement("rect", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 130 : activePoint.x + 10, y: activePoint.y - 20, width: 120, height: 40, fill: "#1e293b", stroke: activePoint.color, rx: 5 }),
+            React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y - 5, fill: "#fff", className: "chart-text" }, `${activePoint.player}`),
+            React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y + 10, fill: "#94a3b8", className: "chart-text" }, `W${activePoint.week}: ${activePoint.relativePoints} pts`)
+          )
+        )
+      ),
+      React.createElement("div", { className: "flex justify-center mt-4" },
+        React.createElement("button", {
+          onClick: () => setShowPotential(!showPotential),
+          className: `px-4 py-2 rounded-lg font-medium transition-colors text-sm ${
+            showPotential
+              ? 'bg-blue-600 text-white'
+              : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+          }`
+        },
+          showPotential ? "Hide Potential" : "Show Potential"
         )
       )
     )
@@ -2007,10 +2040,63 @@ function NFLScoresTracker() {
       leaderPointsPerWeek[weekData.week] = leaderPoints;
     });
 
+    const getRemainingPotentialForWeek = (player, weekNum, allPlayerPicks, weeks, gamesOfTheWeek, includeLiveGames) => {
+        const weekData = weeks.find(w => w.week === weekNum);
+        if (!weekData) return 0;
+
+        const numGamesInWeek = weekData.games.length;
+        const numGotwGames = weekData.games.filter(g => gamesOfTheWeek.includes(g.id)).length;
+        const maxPossiblePointsInWeek = (numGamesInWeek * (numGamesInWeek + 1) / 2) + (numGotwGames * 5);
+
+        const playedGameIds = weekData.games
+            .filter(g => {
+                const isComplete = g.status === 'final' || g.status === 'post';
+                const isLive = g.status === 'in' || g.status === 'live';
+                return isComplete || (includeLiveGames && isLive);
+            })
+            .map(g => g.id);
+
+        const playerPicks = allPlayerPicks[player] || [];
+
+        const confidenceFromPlayedGames = playerPicks
+            .filter(p => playedGameIds.includes(p.gameId))
+            .reduce((acc, p) => {
+                let conf = Number(p.confidence);
+                if (gamesOfTheWeek.includes(p.gameId)) {
+                    conf += 5;
+                }
+                return acc + conf;
+            }, 0);
+
+        return maxPossiblePointsInWeek - confidenceFromPlayedGames;
+    };
+
+    const potentialLeaderPointsPerWeek = {};
+    weeks.forEach(weekData => {
+        const weekNum = weekData.week;
+        let maxPotentialPoints = -Infinity;
+
+        playerNames.forEach(player => {
+            const cumulative = results[player].pointsPerWeek.find(pw => pw.week === weekNum)?.cumulativePoints || 0;
+            const potential = getRemainingPotentialForWeek(player, weekNum, allPlayers, weeks, gamesOfTheWeek, includeLiveGames);
+            const totalPotential = cumulative + potential;
+
+            if (totalPotential > maxPotentialPoints) {
+                maxPotentialPoints = totalPotential;
+            }
+        });
+        potentialLeaderPointsPerWeek[weekNum] = maxPotentialPoints;
+    });
+
+
     // 3. Finalize results - Step 3: Calculate relative points and other week-specific stats
     playerNames.forEach(player => {
       results[player].pointsPerWeek.forEach(weekInfo => {
         weekInfo.relativePoints = weekInfo.cumulativePoints - leaderPointsPerWeek[weekInfo.week];
+        
+        const potential = getRemainingPotentialForWeek(player, weekInfo.week, allPlayers, weeks, gamesOfTheWeek, includeLiveGames);
+        const totalPotential = weekInfo.cumulativePoints + potential;
+        weekInfo.relativePotentialPoints = totalPotential - potentialLeaderPointsPerWeek[weekInfo.week];
       });
 
       const currentWeekData = weeks.find(w => w.week === selectedWeek);
