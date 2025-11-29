@@ -1536,29 +1536,29 @@ function NFLScoresTracker() {
       const [fpiData, setFpiData] = useState({});
       const [matchupQualitySortConfig, setMatchupQualitySortConfig] = useState({ key: null, direction: 'ascending' });    
       const [weekPointsDisplayMode, setWeekPointsDisplayMode] = useState('absolute');    
-      const transformEspnData = (data, fpiDataMap) => {
-        return data.events.map(event => {
-          const competition = event.competitions[0];
-          const homeTeam = competition.competitors.find(t => t.homeAway === 'home');
-          const awayTeam = competition.competitors.find(t => t.homeAway === 'away');
-    
-                                  const homeTeamFpi = fpiDataMap[homeTeam.team.abbreviation];
-    
-                                  const awayTeamFpi = fpiDataMap[awayTeam.team.abbreviation];
-    
-                            
-    
-                                  const matchupQuality = (homeTeamFpi !== undefined && awayTeamFpi !== undefined)
-    
-                                    ? (homeTeamFpi + awayTeamFpi) / 2
-    
-                                    : null;          return {
-            id: parseInt(event.id),
-            date: event.date,
-            home: homeTeam.team.abbreviation,
-            away: awayTeam.team.abbreviation,
-            status: event.status.type.state,
-            winner: (event.status.type.state === 'post' || event.status.type.state === 'final')
+                  const transformEspnData = (data, fpiDataMap) => {
+                    return data.events.map(event => {
+                      const competition = event.competitions[0];
+                      const homeTeam = competition.competitors.find(t => t.homeAway === 'home');
+                      const awayTeam = competition.competitors.find(t => t.homeAway === 'away');
+                
+                                              const homeTeamFpi = fpiDataMap[homeTeam.team.abbreviation];
+                
+                                              const awayTeamFpi = fpiDataMap[awayTeam.team.abbreviation];
+                
+                                        
+                
+                                              const matchupQuality = (homeTeamFpi !== undefined && awayTeamFpi !== undefined)
+                
+                                                ? (homeTeamFpi + awayTeamFpi) / 2
+                
+                                                : null;
+                      return {
+                        id: parseInt(event.id),
+                        date: event.date,
+                        home: homeTeam.team.abbreviation,
+                        away: awayTeam.team.abbreviation,
+                        status: event.status.type.state,            winner: (event.status.type.state === 'post' || event.status.type.state === 'final')
               ? (parseInt(homeTeam.score) > parseInt(awayTeam.score) ? homeTeam.team.abbreviation : (parseInt(awayTeam.score) > parseInt(homeTeam.score) ? awayTeam.team.abbreviation : null))
               : null,
             homeScore: parseInt(homeTeam.score),
@@ -1579,9 +1579,12 @@ function NFLScoresTracker() {
       setGamesOfTheWeek(gamesOfTheWeekIds);
 
       // Load FPI data from local file
-      const fpiDataResponse = await fetch('data/fpi_data.json').then(res => res.json());
+      const fpiDataResponse = await fetch('fpi_data.json').then(res => res.json());
       const fpiDataMap = fpiDataResponse.reduce((map, team) => {
-        map[team.team_abb] = team.fpi;
+        const teamAbbr = teamAbbreviations[team.team];
+        if (teamAbbr) {
+          map[teamAbbr] = team.fpi;
+        }
         return map;
       }, {});
       setFpiData(fpiDataMap);
@@ -2433,7 +2436,7 @@ function NFLScoresTracker() {
 
                                         trChildren.push(
                                           React.createElement("td", { className: "px-2 py-0 text-white" },
-                                            game.matchupQuality ? game.matchupQuality.toFixed(1) : "N/A"
+                                            game.matchupQuality !== null ? game.matchupQuality.toFixed(1) : "N/A"
                                           )
                                         );
 
