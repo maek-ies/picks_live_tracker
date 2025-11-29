@@ -1075,8 +1075,17 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
     });
 
     if (weekPointsDisplayMode === 'vs_leader') {
-      const leaderPoints = Math.max(...data.map(d => d.value));
-      data = data.map(d => ({ ...d, value: d.value - leaderPoints }));
+      const leader = data.reduce((l, p) => (p.value || 0) > (l.value || 0) ? p : l, data[0] || { value: 0, potential: 0 });
+      const leaderTotalPotential = (leader.value || 0) + (leader.potential || 0);
+
+      data = data.map(d => {
+        const playerTotalPotential = (d.value || 0) + (d.potential || 0);
+        return {
+          ...d,
+          value: (d.value || 0) - (leader.value || 0), // Relative earned points
+          potential_top: playerTotalPotential - leaderTotalPotential // Relative total potential
+        };
+      });
     }
 
     if (weekPointsDisplayMode === 'vs_total_leader') {
@@ -1096,6 +1105,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
         data = data.map(d => ({ ...d, value: d.value - totalLeaderWeeklyPoints }));
     }
 
+    // Sort by earned points difference in vs modes, otherwise by absolute value
     if (weekPointsDisplayMode === 'vs_leader' || weekPointsDisplayMode === 'vs_total_leader') {
         data.sort((a, b) => b.value - a.value);
     } else {
@@ -1109,7 +1119,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
   const isVsMode = weekPointsDisplayMode === 'vs_leader' || weekPointsDisplayMode === 'vs_total_leader';
 
   const dataMax = isVsMode
-    ? Math.max(0, ...chartData.map(d => d.value + (d.potential || 0)))
+    ? Math.max(0, ...chartData.map(d => d.potential_top ?? d.value))
     : (weekPointsDisplayMode === 'absolute'
         ? Math.max(1, ...chartData.map(d => d.value + (d.potential || 0)))
         : 100);
@@ -1119,136 +1129,187 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
     : 0;
 
   const { chartMin, chartMax } = React.useMemo(() => {
+    const range = dataMax - dataMin;
+    // Increased buffer to 20% of the range, with a minimum of 10 points
+    const buffer = range > 0 ? range * 0.2 : 10; 
+
     if (isVsMode) {
-      const range = dataMax - dataMin;
-      const buffer = range > 0 ? range * 0.2 : 10;
-      return { chartMin: dataMin - buffer, chartMax: dataMax + (buffer / 2) };
+      return { chartMin: dataMin - buffer, chartMax: dataMax + buffer };
     }
+    if (weekPointsDisplayMode === 'absolute') {
+      return { chartMin: dataMin, chartMax: dataMax + buffer }; // dataMin is 0 here
+    }
+    // For percentage modes, no buffer is needed.
     return { chartMin: dataMin, chartMax: dataMax };
-  }, [dataMin, dataMax, isVsMode]);
+  }, [dataMin, dataMax, isVsMode, weekPointsDisplayMode]);
 
   const chartWidth = 800;
   const chartHeight = isMobile ? 800 : 400;
   const padding = 50;
 
-  const barWidth = (chartWidth - 2 * padding) / chartData.length / 1.5;
-
-  const xScale = (index) => padding + index * (chartWidth - 2 * padding) / chartData.length + (barWidth / 2);
-
   const yScale = (points) => {
-    if (isVsMode) {
-        const range = chartMax - chartMin;
-        if (range === 0) {
-            return chartHeight / 2;
-        }
-        return chartHeight - padding - ((points - chartMin) / range) * (chartHeight - 2 * padding);
+    const range = chartMax - chartMin;
+    if (range === 0) {
+        return chartHeight / 2;
     }
-    return chartHeight - padding - (points / dataMax) * (chartHeight - 2 * padding);
+    return chartHeight - padding - ((points - chartMin) / range) * (chartHeight - 2 * padding);
   };
   
   const colors = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#a855f7", "#F0E442"];
 
-  return (
-    React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
-      React.createElement("svg", {
-        viewBox: `0 0 ${chartWidth} ${chartHeight}`,
-        className: "w-full h-auto"
-      },
-        // X-axis
-        React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
-        isVsMode && React.createElement("line", { x1: padding, y1: yScale(0), x2: chartWidth - padding, y2: yScale(0), stroke: "#64748b", strokeDasharray: "5,5" }),
+  if (isVsMode) {
+    // --- GROUPED BAR CHART for 'vs' modes ---
+    const groupWidth = (chartWidth - 2 * padding) / chartData.length;
+    const barPadding = 4;
+    const originalBarWidth = Math.max(1, (groupWidth / 2) - barPadding); // Old barWidth
+    const singleBarWidth = originalBarWidth / 2; // New, narrower bar width
+    const xScale = (index) => padding + index * groupWidth;
 
-        chartData.map(({ player, value, potential }, index) => {
-            const yPos = chartHeight - padding + 20;
-            return React.createElement("text", {
-                key: player,
-                x: xScale(index),
-                y: yPos,
-                fill: "#94a3b8",
-                textAnchor: "middle",
-                className: "chart-text"
-            }, player)
-        }),
+    return (
+      React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
+        React.createElement("svg", { viewBox: `0 0 ${chartWidth} ${chartHeight}`, className: "w-full h-auto" },
+          // Legend
+          React.createElement("g", { transform: `translate(${padding}, 30)` },
+              React.createElement("g", { transform: `translate(0, 0)` },
+                  React.createElement("rect", { x: 0, y: -10, width: 10, height: 10, fill: "white" }),
+                  React.createElement("text", { x: 15, y: 0, fill: "#94a3b8", className: "chart-text" }, "Earned Diff.")
+              ),
+              React.createElement("g", { transform: `translate(150, 0)` },
+                  React.createElement("rect", { x: 0, y: -10, width: 10, height: 10, fill: "transparent", stroke: "white", strokeWidth: 1 }),
+                  React.createElement("text", { x: 15, y: 0, fill: "#94a3b8", className: "chart-text" }, "Potential Diff.")
+              )
+          ),
+          // Y-Axis
+          Array.from({ length: 5 }).map((_, i) => {
+              const range = chartMax - chartMin;
+              const point = chartMin + (i * range / 4);
+              return React.createElement("text", { key: i, x: padding - 10, y: yScale(point), fill: "#94a3b8", textAnchor: "end", className: "chart-text" }, point.toFixed(0));
+          }),
+          // X-Axis Line & Zero Line
+          React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
+          React.createElement("line", { x1: padding, y1: yScale(0), x2: chartWidth - padding, y2: yScale(0), stroke: "#64748b", strokeDasharray: "5,5" }),
 
-        Array.from({ length: 5 }).map((_, i) => {
-            let labelValue;
-            let yPos;
-
-            if (isVsMode) {
-                const range = chartMax - chartMin;
-                const point = chartMin + (i * range / 4);
-                labelValue = point.toFixed(0);
-                yPos = yScale(point);
-            } else {
-                const point = dataMax / 4 * i;
-                labelValue = point.toFixed(0);
-                yPos = yScale(point);
-            }
-
-            return React.createElement("text", {
-                key: i,
-                x: padding - 10,
-                y: yPos,
-                fill: "#94a3b8",
-                textAnchor: "end",
-                className: "chart-text"
-            }, `${labelValue}${weekPointsDisplayMode !== 'absolute' && !isVsMode ? '%' : ''}`);
-        }),
-
-        chartData.map(({ player, value, potential }, index) => {
+          // Bars and Labels
+          chartData.map(({ player, value, potential_top }, index) => {
             const playerIndex = players.indexOf(player);
             const color = colors[playerIndex % colors.length];
+            const groupX = xScale(index);
+            const playerLabel = React.createElement("text", { x: groupX + groupWidth / 2, y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, player);
 
-            const barX = xScale(index) - barWidth / 2;
-            let barY, barHeight;
-
-            if (isVsMode) {
-                if (value >= 0) {
-                    barY = yScale(value);
-                    barHeight = yScale(0) - barY;
-                } else {
-                    barY = yScale(0);
-                    barHeight = yScale(value) - barY;
-                }
-            } else {
-                barY = yScale(value);
-                barHeight = chartHeight - padding - barY;
+            // Special handling for the leader
+            if (value === 0 && potential_top === 0) {
+                const leaderLabel = React.createElement("text", {
+                    key: `${player}-leader-label`,
+                    x: groupX + groupWidth / 2,
+                    y: yScale(0) - 5,
+                    fill: "#fff", textAnchor: "middle", className: "chart-text"
+                }, "0");
+                return React.createElement("g", { key: player }, playerLabel, leaderLabel);
             }
 
-            return (
-                React.createElement("g", { key: player },
-                    React.createElement("rect", {
-                        x: barX,
-                        y: barY,
-                        width: barWidth,
-                        height: Math.abs(barHeight),
-                        fill: color,
-                        rx: 4 
-                    }),
-                    // Potential points bar (stacked on top)
-                    (potential && potential > 0 && (weekPointsDisplayMode === 'absolute' || isVsMode)) ? React.createElement("rect", {
-                        x: barX,
-                        y: isVsMode ? (value >= 0 ? yScale(value + potential) : yScale(0) - yScale(potential)) : yScale(value + potential),
-                        width: barWidth,
-                        height: isVsMode ? (value >= 0 ? yScale(value) - yScale(value + potential) : yScale(potential) - yScale(0)) : yScale(value) - yScale(value + potential),
-                        fill: "transparent",
-                        stroke: color,
-                        strokeWidth: 2,
-                        rx: 4
-                    }) : null,
-                    React.createElement("text", {
-                        x: barX + barWidth / 2,
-                        y: barY + (value < 0 ? Math.abs(barHeight) + 15 : -5),
-                        fill: "#fff",
-                        textAnchor: "middle",
-                        className: "chart-text"
-                    }, weekPointsDisplayMode === 'absolute' || isVsMode ? value.toFixed(0) : `${value.toFixed(1)}%`)
-                )
+            // Layout for other players
+
+
+            // Calculate new X positions for the two bars to be centered in their group
+            const totalGroupBarWidth = (singleBarWidth * 2) + barPadding;
+            const groupBarStartX = groupX + (groupWidth / 2) - (totalGroupBarWidth / 2);
+
+            const bar1X = groupBarStartX;
+            const bar2X = groupBarStartX + singleBarWidth + barPadding;
+            
+            let earnedBar, potentialBar, earnedLabel, potentialLabel;
+
+            // Bar 1: Earned Difference
+            if (typeof value !== 'undefined') {
+                earnedBar = React.createElement("rect", {
+                    key: `${player}-earned-bar`,
+                    x: bar1X,
+                    y: value >= 0 ? yScale(value) : yScale(0),
+                    width: singleBarWidth,
+                    height: Math.abs(yScale(0) - yScale(value)),
+                    fill: color,
+                    rx: 4
+                });
+                earnedLabel = React.createElement("text", {
+                    key: `${player}-earned-label`,
+                    x: bar1X + singleBarWidth / 2,
+                    y: yScale(value) + (value < 0 ? 15 : -5),
+                    fill: "#fff", textAnchor: "middle", className: "chart-text"
+                }, value.toFixed(0));
+            }
+
+            // Bar 2: Potential Difference (Half-width and Hollow)
+            if (typeof potential_top !== 'undefined') {
+                potentialBar = React.createElement("rect", {
+                    key: `${player}-potential-bar`,
+                    x: bar2X,
+                    y: potential_top >= 0 ? yScale(potential_top) : yScale(0),
+                    width: singleBarWidth,
+                    height: Math.abs(yScale(0) - yScale(potential_top)),
+                    fill: 'transparent',
+                    stroke: color,
+                    strokeWidth: 2,
+                    rx: 4
+                });
+                potentialLabel = React.createElement("text", {
+                    key: `${player}-potential-label`,
+                    x: bar2X + singleBarWidth / 2,
+                    y: yScale(potential_top) + (potential_top < 0 ? 15 : -5),
+                    fill: "#a0a0a0", textAnchor: "middle", className: "chart-text"
+                }, potential_top.toFixed(0));
+            }
+
+            return React.createElement("g", { key: player },
+                playerLabel,
+                earnedBar,
+                potentialBar,
+                earnedLabel,
+                potentialLabel
             );
-        })
+          })
+        )
       )
-    )
-  );
+    );
+  } else {
+    // --- STACKED/ABSOLUTE BAR CHART (existing logic) ---
+    const barWidth = (chartWidth - 2 * padding) / chartData.length / 1.5;
+    const xScale = (index) => padding + index * (chartWidth - 2 * padding) / chartData.length + (barWidth / 2);
+
+    return (
+      React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
+        React.createElement("svg", { viewBox: `0 0 ${chartWidth} ${chartHeight}`, className: "w-full h-auto" },
+          // X-Axis
+          React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
+          chartData.map(({ player }, index) => React.createElement("text", { key: player, x: xScale(index), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, player)),
+          // Y-Axis
+          Array.from({ length: 5 }).map((_, i) => {
+              const point = (chartMax / 4) * i;
+              return React.createElement("text", { key: i, x: padding - 10, y: yScale(point), fill: "#94a3b8", textAnchor: "end", className: "chart-text" }, `${point.toFixed(0)}${weekPointsDisplayMode !== 'absolute' ? '%' : ''}`);
+          }),
+          // Bars and Labels
+          chartData.map(({ player, value, potential }, index) => {
+            const playerIndex = players.indexOf(player);
+            const color = colors[playerIndex % colors.length];
+            const barX = xScale(index) - barWidth / 2;
+            let earnedBar = null, earnedLabel = null, potentialBar = null, potentialLabel = null;
+
+            const barY = yScale(value);
+            const barHeight = chartHeight - padding - barY;
+            
+            earnedBar = React.createElement("rect", { key: `${player}-earned-bar`, x: barX, y: barY, width: barWidth, height: barHeight, fill: color, rx: 4 });
+            earnedLabel = React.createElement("text", { key: `${player}-earned-label`, x: barX + barWidth / 2, y: barY - 5, fill: "#fff", textAnchor: "middle", className: "chart-text" }, weekPointsDisplayMode === 'absolute' ? value.toFixed(0) : `${value.toFixed(1)}%`);
+
+            if (weekPointsDisplayMode === 'absolute' && potential && potential > 0) {
+                potentialLabel = React.createElement("text", { key: `${player}-potential-label`, x: barX + barWidth / 2, y: yScale(value + potential) - 5, fill: "#a0a0a0", textAnchor: "middle", className: "chart-text" }, (value + potential).toFixed(0));
+                potentialBar = React.createElement("rect", { key: `${player}-potential-bar`, x: barX, y: yScale(value + potential), width: barWidth, height: yScale(value) - yScale(value + potential), fill: "transparent", stroke: color, strokeWidth: 2, rx: 4 });
+            }
+
+            return React.createElement("g", { key: player }, earnedBar, potentialBar, earnedLabel, potentialLabel);
+          })
+        )
+      )
+    );
+  }
 }
 
 function ConfidencePicksSummaryTable({ games, showDisagreement }) {
