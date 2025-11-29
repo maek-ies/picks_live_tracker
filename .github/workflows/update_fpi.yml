@@ -46,7 +46,6 @@ jobs:
       - uses: actions/download-artifact@v4
         with:      
           name: fpi_data_json
-          path: data/fpi_data.json 
       - name: Commit report
         run: |
           git config --global user.name 'Your Name'
