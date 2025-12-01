@@ -1903,10 +1903,35 @@ function NFLScoresTracker() {
 
       const downloadOverview = () => {
         if (!weekOverviewRef.current) return;
-        window.html2canvas(weekOverviewRef.current, {
+        
+        const table = weekOverviewRef.current.querySelector('table');
+        if (!table) return;
+
+        const fullWidth = table.scrollWidth + 10;
+        const fullHeight = table.scrollHeight + 10; // Reduced height padding as well
+
+        window.html2canvas(table, { // Target the table directly
             backgroundColor: '#1e293b', // slate-800
             scale: 2,
-            useCORS: true
+            useCORS: true,
+            width: fullWidth,
+            height: fullHeight,
+            windowWidth: fullWidth,
+            onclone: (clonedDoc) => {
+                // Fix sticky headers (these are on TH elements)
+                const stickyElements = clonedDoc.querySelectorAll('.sticky');
+                stickyElements.forEach(el => {
+                    el.style.position = 'static';
+                });
+
+                // The table itself is the target, so no need to adjust its parents' overflow. 
+                // However, the cloned table might inherit styles from cloned parents, 
+                // so ensure the table itself has fit-content width if needed.
+                const clonedTable = clonedDoc.querySelector('table');
+                if (clonedTable) {
+                    clonedTable.style.width = 'fit-content';
+                }
+            }
         }).then(canvas => {
             const link = document.createElement('a');
             link.download = `Week_${selectedWeek}_Overview.png`;
@@ -1917,23 +1942,58 @@ function NFLScoresTracker() {
   
       const shareOverview = () => {
         if (!weekOverviewRef.current) return;
-        window.html2canvas(weekOverviewRef.current, {
+
+        const table = weekOverviewRef.current.querySelector('table');
+        if (!table) return;
+
+        const fullWidth = table.scrollWidth + 10;
+        const fullHeight = table.scrollHeight + 10;
+
+        window.html2canvas(table, { // Target the table directly
             backgroundColor: '#1e293b', // slate-800
             scale: 2,
-            useCORS: true
+            useCORS: true,
+            width: fullWidth,
+            height: fullHeight,
+            windowWidth: fullWidth,
+            onclone: (clonedDoc) => {
+                // Fix sticky headers
+                const stickyElements = clonedDoc.querySelectorAll('.sticky');
+                stickyElements.forEach(el => {
+                    el.style.position = 'static';
+                });
+
+                const clonedTable = clonedDoc.querySelector('table');
+                if (clonedTable) {
+                    clonedTable.style.width = 'fit-content';
+                }
+            }
         }).then(canvas => {
             canvas.toBlob(async (blob) => {
               if (blob) {
                   const file = new File([blob], `Week_${selectedWeek}_Overview.png`, { type: "image/png" });
-                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                      try {
-                          await navigator.share({
-                              files: [file],
-                              title: `Week ${selectedWeek} Overview`
-                          });
-                      } catch (error) {
-                          if (error.name !== 'AbortError') console.error('Error sharing:', error);
+                  const shareData = {
+                      files: [file],
+                      title: `Week ${selectedWeek} Overview`
+                  };
+
+                  if (navigator.share) {
+                      if (navigator.canShare && !navigator.canShare(shareData)) {
+                           console.error("Your browser doesn't support sharing this file.");
+                           return;
                       }
+                      
+                      try {
+                          await navigator.share(shareData);
+                      } catch (error) {
+                          if (error.name !== 'AbortError') {
+                              console.error('Error sharing:', error);
+                              alert('Error sharing. Please try downloading instead.');
+                          }
+                      }
+                  } else {
+                      console.log("Web Share API not supported.");
+                      alert("Web Share API not supported on this browser.");
                   }
               }
             }, 'image/png');
@@ -2033,23 +2093,14 @@ function NFLScoresTracker() {
             let homeMoneyLine = null;
             let awayMoneyLine = null;
 
-            // Log the pickcenter data if it exists, to see what we are working with
-            if (summaryData.pickcenter) {
-                 console.log(`Game ${game.id} Pickcenter:`, summaryData.pickcenter);
-            } else {
-                 console.log(`Game ${game.id} has NO pickcenter data.`);
-            }
-
-            if (summaryData.pickcenter && summaryData.pickcenter.length > 0 && summaryData.pickcenter[0].moneyline) {
-                console.log(`Game ${game.id} (${game.away}@${game.home}) Pickcenter Raw:`, JSON.parse(JSON.stringify(summaryData.pickcenter[0].moneyline)));
-                if(summaryData.pickcenter[0].moneyline.home && summaryData.pickcenter[0].moneyline.home.close) {
-                    homeMoneyLine = summaryData.pickcenter[0].moneyline.home.close.odds;
-                }
-                if(summaryData.pickcenter[0].moneyline.away && summaryData.pickcenter[0].moneyline.away.close) {
-                    awayMoneyLine = summaryData.pickcenter[0].moneyline.away.close.odds;
-                }
-                console.log(`Game ${game.id} Extracted ML - Home: ${homeMoneyLine}, Away: ${awayMoneyLine}`);
-            }
+          if (summaryData.pickcenter && summaryData.pickcenter.length > 0 && summaryData.pickcenter[0].moneyline) {
+              if(summaryData.pickcenter[0].moneyline.home && summaryData.pickcenter[0].moneyline.home.close) {
+                  homeMoneyLine = summaryData.pickcenter[0].moneyline.home.close.odds;
+              }
+              if(summaryData.pickcenter[0].moneyline.away && summaryData.pickcenter[0].moneyline.away.close) {
+                  awayMoneyLine = summaryData.pickcenter[0].moneyline.away.close.odds;
+              }
+          }
 
             const gameStatus = game.status;
 
