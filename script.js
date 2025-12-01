@@ -1949,7 +1949,7 @@ function NFLScoresTracker() {
         const fullWidth = table.scrollWidth + 10;
         const fullHeight = table.scrollHeight + 10;
 
-        window.html2canvas(table, { // Target the table directly
+        window.html2canvas(table, {
             backgroundColor: '#1e293b', // slate-800
             scale: 2,
             useCORS: true,
@@ -1978,25 +1978,30 @@ function NFLScoresTracker() {
                   };
 
                   if (navigator.share) {
-                      if (navigator.canShare && !navigator.canShare(shareData)) {
-                           console.error("Your browser doesn't support sharing this file.");
-                           return;
-                      }
-                      
-                      try {
-                          await navigator.share(shareData);
-                      } catch (error) {
-                          if (error.name !== 'AbortError') {
-                              console.error('Error sharing:', error);
-                              alert('Error sharing. Please try downloading instead.');
+                      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                          try {
+                              await navigator.share(shareData);
+                          } catch (error) {
+                              if (error.name !== 'AbortError') {
+                                  console.error('Error sharing:', error);
+                                  alert(`Error sharing: ${error.message}`);
+                              }
                           }
+                      } else {
+                          console.error("Your browser doesn't support sharing this file.");
+                          alert("Your browser says it cannot share this generated image (canShare=false). It might be too large.");
                       }
                   } else {
                       console.log("Web Share API not supported.");
                       alert("Web Share API not supported on this browser.");
                   }
+              } else {
+                  alert("Failed to create image blob.");
               }
             }, 'image/png');
+        }).catch(err => {
+            console.error("html2canvas error:", err);
+            alert(`Image generation failed: ${err.message}`);
         });
       };
 
