@@ -588,6 +588,7 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
   const [activePoint, setActivePoint] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showPotential, setShowPotential] = useState(true);
+  const chartRef = React.useRef(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -596,6 +597,102 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const downloadChart = () => {
+    if (!chartRef.current) return;
+    const svg = chartRef.current;
+
+    const canvas = document.createElement("canvas");
+    const bbox = svg.getBoundingClientRect();
+    const width = bbox.width * 2;
+    const height = bbox.height * 2;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(2, 2);
+
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svg);
+
+    const style = `
+      <style>
+        .chart-text { font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; fill: #94a3b8; }
+      </style>
+    `;
+    svgString = svgString.replace(/^<svg[^>]*>/, `$&${style}`);
+
+    const img = new Image();
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, bbox.width, bbox.height);
+      ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
+      URL.revokeObjectURL(url);
+
+      const pngUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `Cumulative_Points_vs_Leader_Week_${selectedWeek}.png`;
+      link.href = pngUrl;
+      link.click();
+    };
+    img.src = url;
+  };
+
+  const shareChart = () => {
+    if (!chartRef.current) return;
+    const svg = chartRef.current;
+
+    const canvas = document.createElement("canvas");
+    const bbox = svg.getBoundingClientRect();
+    const width = bbox.width * 2;
+    const height = bbox.height * 2;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(2, 2);
+
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svg);
+
+    const style = `
+      <style>
+        .chart-text { font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; fill: #94a3b8; }
+      </style>
+    `;
+    svgString = svgString.replace(/^<svg[^>]*>/, `$&${style}`);
+
+    const img = new Image();
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, bbox.width, bbox.height);
+      ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
+      URL.revokeObjectURL(url);
+
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+            const file = new File([blob], `Cumulative_Points_vs_Leader_Week_${selectedWeek}.png`, { type: "image/png" });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: `Cumulative Points vs Leader (Week ${selectedWeek})`
+                    });
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Error sharing:', error);
+                    }
+                }
+            }
+        }
+      }, 'image/png');
+    };
+    img.src = url;
+  };
 
   const players = Object.keys(confidenceResults);
 
@@ -723,6 +820,7 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
     React.createElement(React.Fragment, null,
       React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
         React.createElement("svg", {
+          ref: chartRef,
           viewBox: `0 0 ${chartWidth} ${chartHeight}`,
           className: "w-full h-auto",
           onMouseMove: handleMouseMove,
@@ -797,6 +895,21 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
             React.createElement("text", { x: activePoint.x > chartWidth - 150 ? activePoint.x - 120 : activePoint.x + 20, y: activePoint.y + 10, fill: "#94a3b8", className: "chart-text" }, `W${activePoint.week}: ${activePoint.relativePoints} pts`)
           )
         )
+      ),
+      React.createElement("div", { className: "flex justify-end gap-2 mt-2" },
+                      isMobile && navigator.share && React.createElement("button", {
+                          onClick: shareChart,
+                          className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
+                          title: "Share"
+                      }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+                          React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" })
+                      )),          React.createElement("button", {
+              onClick: downloadChart,
+              className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
+              title: "Export as PNG"
+          }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+              React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" })
+          ))
       ),
       React.createElement("div", { className: "flex justify-center mt-4" },
         React.createElement("button", {
@@ -1144,8 +1257,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
                 try {
                     await navigator.share({
                         files: [file],
-                        title: `Week ${selectedWeek} Points`,
-                        text: 'Check out the points chart!'
+                        title: `Week ${selectedWeek} Points`
                     });
                 } catch (error) {
                     if (error.name !== 'AbortError') {
@@ -1429,14 +1541,18 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
         React.createElement("div", { className: "flex justify-end gap-2 mt-2" },
             isMobile && navigator.share && React.createElement("button", {
                 onClick: shareChart,
-                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
                 title: "Share"
-            }, "📤"),
+            }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+                React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" })
+            )),
             React.createElement("button", {
                 onClick: downloadChart,
-                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
                 title: "Export as PNG"
-            }, "⬇️")
+            }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+                React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" })
+            ))
         )
       )
     );
@@ -1480,14 +1596,18 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
         React.createElement("div", { className: "flex justify-end gap-2 mt-2" },
             isMobile && navigator.share && React.createElement("button", {
                 onClick: shareChart,
-                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
                 title: "Share"
-            }, "📤"),
+            }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+                React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" })
+            )),
             React.createElement("button", {
                 onClick: downloadChart,
-                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
                 title: "Export as PNG"
-            }, "⬇️")
+            }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+                React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" })
+            ))
         )
       )
     );
@@ -1778,7 +1898,48 @@ function NFLScoresTracker() {
       const [showDisagreement, setShowDisagreement] = useState('hidden'); // 'hidden', 'wp', 'confidence'
       const [fpiData, setFpiData] = useState({});
       const [matchupQualitySortConfig, setMatchupQualitySortConfig] = useState({ key: null, direction: 'ascending' });    
-      const [weekPointsDisplayMode, setWeekPointsDisplayMode] = useState('absolute');    
+      const [weekPointsDisplayMode, setWeekPointsDisplayMode] = useState('absolute');
+      const weekOverviewRef = React.useRef(null);
+
+      const downloadOverview = () => {
+        if (!weekOverviewRef.current) return;
+        window.html2canvas(weekOverviewRef.current, {
+            backgroundColor: '#1e293b', // slate-800
+            scale: 2,
+            useCORS: true
+        }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `Week_${selectedWeek}_Overview.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+      };
+  
+      const shareOverview = () => {
+        if (!weekOverviewRef.current) return;
+        window.html2canvas(weekOverviewRef.current, {
+            backgroundColor: '#1e293b', // slate-800
+            scale: 2,
+            useCORS: true
+        }).then(canvas => {
+            canvas.toBlob(async (blob) => {
+              if (blob) {
+                  const file = new File([blob], `Week_${selectedWeek}_Overview.png`, { type: "image/png" });
+                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                      try {
+                          await navigator.share({
+                              files: [file],
+                              title: `Week ${selectedWeek} Overview`
+                          });
+                      } catch (error) {
+                          if (error.name !== 'AbortError') console.error('Error sharing:', error);
+                      }
+                  }
+              }
+            }, 'image/png');
+        });
+      };
+
                   const transformEspnData = (data, fpiDataMap) => {
                     return data.events.map(event => {
                       const competition = event.competitions[0];
@@ -1861,6 +2022,9 @@ function NFLScoresTracker() {
             if (game.id === 401547394) { // Log summary for a specific game to avoid flooding the console
                 console.log(summaryData);
             }
+            
+            // Debug logging for Moneyline investigation
+            // console.log(`Game ${game.id} Summary Data:`, JSON.stringify(summaryData).substring(0, 500) + "..."); 
 
             let homeWinProbability = null;
             let awayWinProbability = null;
@@ -1869,13 +2033,22 @@ function NFLScoresTracker() {
             let homeMoneyLine = null;
             let awayMoneyLine = null;
 
+            // Log the pickcenter data if it exists, to see what we are working with
+            if (summaryData.pickcenter) {
+                 console.log(`Game ${game.id} Pickcenter:`, summaryData.pickcenter);
+            } else {
+                 console.log(`Game ${game.id} has NO pickcenter data.`);
+            }
+
             if (summaryData.pickcenter && summaryData.pickcenter.length > 0 && summaryData.pickcenter[0].moneyline) {
+                console.log(`Game ${game.id} (${game.away}@${game.home}) Pickcenter Raw:`, JSON.parse(JSON.stringify(summaryData.pickcenter[0].moneyline)));
                 if(summaryData.pickcenter[0].moneyline.home && summaryData.pickcenter[0].moneyline.home.close) {
                     homeMoneyLine = summaryData.pickcenter[0].moneyline.home.close.odds;
                 }
                 if(summaryData.pickcenter[0].moneyline.away && summaryData.pickcenter[0].moneyline.away.close) {
                     awayMoneyLine = summaryData.pickcenter[0].moneyline.away.close.odds;
                 }
+                console.log(`Game ${game.id} Extracted ML - Home: ${homeMoneyLine}, Away: ${awayMoneyLine}`);
             }
 
             const gameStatus = game.status;
@@ -2564,7 +2737,7 @@ function NFLScoresTracker() {
           React.createElement(OddsTable, { weeks: weeks, selectedWeek: selectedWeek, showDisagreement: showDisagreement, setShowDisagreement: setShowDisagreement })
         ) : activeTab === 'week-overview' ? (
           React.createElement("div", null,
-            React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden" },
+            React.createElement("div", { ref: weekOverviewRef, className: "bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden" },
               React.createElement("div", { className: "overflow-x-auto" },
                 React.createElement("table", { className: "w-full" },
                   React.createElement("thead", null,
@@ -2741,6 +2914,22 @@ function NFLScoresTracker() {
                   )
                 )
               )
+            ),
+            React.createElement("div", { className: "flex justify-end gap-2 mt-2" },
+                (window.innerWidth < 768) && navigator.share && React.createElement("button", {
+                    onClick: shareOverview,
+                    className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
+                    title: "Share"
+                }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+                    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186 9.566-5.314m-9.566 7.5 9.566 5.314m0 0a2.25 2.25 0 1 0 3.935 2.186 2.25 2.25 0 0 0-3.935-2.186Zm0-12.814a2.25 2.25 0 1 0 3.933-2.185 2.25 2.25 0 0 0-3.933 2.185Z" })
+                )),
+                React.createElement("button", {
+                    onClick: downloadOverview,
+                    className: "p-2 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-lg transition-colors flex items-center justify-center",
+                    title: "Export as PNG"
+                }, React.createElement("svg", { xmlns: "http://www.w3.org/2000/svg", fill: "none", viewBox: "0 0 24 24", strokeWidth: 1.5, stroke: "currentColor", className: "w-4 h-4" },
+                    React.createElement("path", { strokeLinecap: "round", strokeLinejoin: "round", d: "M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" })
+                ))
             )
           )
         ) : activeTab === 'leaderboard' ? (
