@@ -1052,6 +1052,7 @@ function GamesOfTheWeekPointsTable({ allPicks, confidenceResults, weeks, gamesOf
 
 function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, gamesOfTheWeek, weekPointsDisplayMode }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const chartRef = React.useRef(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -1060,6 +1061,105 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  const downloadChart = () => {
+    if (!chartRef.current) return;
+    const svg = chartRef.current;
+
+    const canvas = document.createElement("canvas");
+    const bbox = svg.getBoundingClientRect();
+    const width = bbox.width * 2;
+    const height = bbox.height * 2;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(2, 2);
+
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svg);
+
+    const style = `
+      <style>
+        .chart-text { font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; fill: #94a3b8; }
+      </style>
+    `;
+    svgString = svgString.replace(/^<svg[^>]*>/, `$&${style}`);
+
+    const img = new Image();
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, bbox.width, bbox.height);
+      ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
+      URL.revokeObjectURL(url);
+
+      const pngUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `Week_${selectedWeek}_Points_Chart.png`;
+      link.href = pngUrl;
+      link.click();
+    };
+    img.src = url;
+  };
+
+  const shareChart = () => {
+    if (!chartRef.current) return;
+    const svg = chartRef.current;
+
+    const canvas = document.createElement("canvas");
+    const bbox = svg.getBoundingClientRect();
+    const width = bbox.width * 2;
+    const height = bbox.height * 2;
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(2, 2);
+
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svg);
+
+    const style = `
+      <style>
+        .chart-text { font-size: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; fill: #94a3b8; }
+      </style>
+    `;
+    svgString = svgString.replace(/^<svg[^>]*>/, `$&${style}`);
+
+    const img = new Image();
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    img.onload = () => {
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(0, 0, bbox.width, bbox.height);
+      ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
+      URL.revokeObjectURL(url);
+
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+            const file = new File([blob], `Week_${selectedWeek}_Points_Chart.png`, { type: "image/png" });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: `Week ${selectedWeek} Points`,
+                        text: 'Check out the points chart!'
+                    });
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Error sharing:', error);
+                    }
+                }
+            }
+        }
+      }, 'image/png');
+    };
+    img.src = url;
+  };
+
+
 
   const players = Object.keys(confidenceResults);
   const weekData = allWeeks.find(w => w.week === selectedWeek);
@@ -1225,7 +1325,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
 
     return (
       React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
-        React.createElement("svg", { viewBox: `0 0 ${chartWidth} ${chartHeight}`, className: "w-full h-auto" },
+        React.createElement("svg", { ref: chartRef, viewBox: `0 0 ${chartWidth} ${chartHeight}`, className: "w-full h-auto" },
           // Legend
           React.createElement("g", { transform: `translate(${padding}, 30)` },
               React.createElement("g", { transform: `translate(0, 0)` },
@@ -1325,6 +1425,18 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
                 potentialLabel
             );
           })
+        ),
+        React.createElement("div", { className: "flex justify-end gap-2 mt-2" },
+            isMobile && navigator.share && React.createElement("button", {
+                onClick: shareChart,
+                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                title: "Share"
+            }, "📤"),
+            React.createElement("button", {
+                onClick: downloadChart,
+                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                title: "Export as PNG"
+            }, "⬇️")
         )
       )
     );
@@ -1335,7 +1447,7 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
 
     return (
       React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
-        React.createElement("svg", { viewBox: `0 0 ${chartWidth} ${chartHeight}`, className: "w-full h-auto" },
+        React.createElement("svg", { ref: chartRef, viewBox: `0 0 ${chartWidth} ${chartHeight}`, className: "w-full h-auto" },
           // X-Axis
           React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
           chartData.map(({ player }, index) => React.createElement("text", { key: player, x: xScale(index), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, player)),
@@ -1364,6 +1476,18 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
 
             return React.createElement("g", { key: player }, earnedBar, potentialBar, earnedLabel, potentialLabel);
           })
+        ),
+        React.createElement("div", { className: "flex justify-end gap-2 mt-2" },
+            isMobile && navigator.share && React.createElement("button", {
+                onClick: shareChart,
+                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                title: "Share"
+            }, "📤"),
+            React.createElement("button", {
+                onClick: downloadChart,
+                className: "p-1 text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-600 rounded-full transition-colors",
+                title: "Export as PNG"
+            }, "⬇️")
         )
       )
     );
