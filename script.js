@@ -88,6 +88,35 @@ const convertOddsToProbability = (odds) => {
   }
 };
 
+const fetchOdds = async (gameId) => {
+    try {
+        const response = await fetch(`https://sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/${gameId}/competitions/${gameId}/odds`);
+        const data = await response.json();
+
+        if (data && data.items) {
+            const targetProviders = ["Draft Kings", "ESPN BET"];
+            // Exclude "ESPN Bet - Live Odds" implicitly by checking against exact strings in targetProviders
+            
+            const oddsItem = data.items.find(item =>
+                item.provider &&
+                targetProviders.includes(item.provider.name) &&
+                item.homeTeamOdds && item.homeTeamOdds.moneyLine != null &&
+                item.awayTeamOdds && item.awayTeamOdds.moneyLine != null
+            );
+
+            if (oddsItem) {
+                return {
+                    homeMoneyLine: oddsItem.homeTeamOdds.moneyLine,
+                    awayMoneyLine: oddsItem.awayTeamOdds.moneyLine
+                };
+            }
+        }
+    } catch (error) {
+        // console.error(`Error fetching odds for game ${gameId}:`, error);
+    }
+    return { homeMoneyLine: null, awayMoneyLine: null };
+};
+
 const calculateGameConfidence = (games) => {
   let processedGames = games.map(game => {
     const homeWP = game.initialHomeWinProbability ?? game.homeWinProbability;
@@ -1683,11 +1712,11 @@ function ConfidencePicksSummaryTable({ games, showDisagreement }) {
                     React.createElement("div", { className: "flex items-center justify-center gap-4" },
                       React.createElement("span", { className: "font-bold text-lg" }, game.aggConfidence),
                       React.createElement("div", { className: "flex flex-col items-center text-center" },
-                        React.createElement("img", {
+                        game.aggPick ? React.createElement("img", {
                           src: `https://a.espncdn.com/i/teamlogos/nfl/500/${game.aggPick.toLowerCase()}.png`,
                           alt: game.aggPick,
                           className: "w-8 h-8 mx-auto"
-                        }),
+                        }) : React.createElement("div", { className: "w-8 h-8 mx-auto" }, "-"),
                         React.createElement("div", { className: "text-xs text-slate-400 mt-1" }, aggPickWP ? `${aggPickWP.toFixed(1)}%` : "N/A"),
                         showDisagreement === 'wp' && game.modelDisagreement !== null && React.createElement("div", { className: "text-xs text-slate-400 mt-1" }, `(${game.modelDisagreement.toFixed(1)}%)`),
                         showDisagreement === 'confidence' && game.confidenceDisagreement !== null && React.createElement("div", { className: "text-xs text-slate-400 mt-1" }, `(${game.confidenceDisagreement})`)
@@ -1698,11 +1727,11 @@ function ConfidencePicksSummaryTable({ games, showDisagreement }) {
                     React.createElement("div", { className: "flex items-center justify-center gap-4" },
                       React.createElement("span", { className: "font-bold text-lg" }, game.fpiConfidence === Infinity ? "N/A" : game.fpiConfidence),
                       React.createElement("div", { className: "flex flex-col items-center text-center" },
-                        React.createElement("img", {
+                        game.fpiPick ? React.createElement("img", {
                           src: `https://a.espncdn.com/i/teamlogos/nfl/500/${game.fpiPick.toLowerCase()}.png`,
                           alt: game.fpiPick,
                           className: "w-8 h-8 mx-auto"
-                        }),
+                        }) : React.createElement("div", { className: "w-8 h-8 mx-auto" }, "-"),
                         React.createElement("span", { className: "text-xs text-slate-400 mt-1" }, fpiPickWP ? `${fpiPickWP.toFixed(1)}%` : "N/A")
                       )
                     )
@@ -1711,11 +1740,11 @@ function ConfidencePicksSummaryTable({ games, showDisagreement }) {
                     React.createElement("div", { className: "flex items-center justify-center gap-4" },
                       React.createElement("span", { className: "font-bold text-lg" }, game.mlConfidence === Infinity ? "N/A" : game.mlConfidence),
                       React.createElement("div", { className: "flex flex-col items-center text-center" },
-                        React.createElement("img", {
+                        game.mlPick ? React.createElement("img", {
                           src: `https://a.espncdn.com/i/teamlogos/nfl/500/${game.mlPick.toLowerCase()}.png`,
                           alt: game.mlPick,
                           className: "w-8 h-8 mx-auto"
-                        }),
+                        }) : React.createElement("div", { className: "w-8 h-8 mx-auto" }, "-"),
                         React.createElement("span", { className: "text-xs text-slate-400 mt-1" }, mlPickWP ? `${(mlPickWP * 100).toFixed(1)}%` : "N/A")
                       )
                     )
@@ -2095,17 +2124,11 @@ function NFLScoresTracker() {
             let awayWinProbability = null;
             let initialHomeWinProbability = null;
             let initialAwayWinProbability = null;
-            let homeMoneyLine = null;
-            let awayMoneyLine = null;
-
-          if (summaryData.pickcenter && summaryData.pickcenter.length > 0 && summaryData.pickcenter[0].moneyline) {
-              if(summaryData.pickcenter[0].moneyline.home && summaryData.pickcenter[0].moneyline.home.close) {
-                  homeMoneyLine = summaryData.pickcenter[0].moneyline.home.close.odds;
-              }
-              if(summaryData.pickcenter[0].moneyline.away && summaryData.pickcenter[0].moneyline.away.close) {
-                  awayMoneyLine = summaryData.pickcenter[0].moneyline.away.close.odds;
-              }
-          }
+            
+            // Fetch odds from new endpoint
+            const oddsData = await fetchOdds(game.id);
+            let homeMoneyLine = oddsData.homeMoneyLine;
+            let awayMoneyLine = oddsData.awayMoneyLine;
 
             const gameStatus = game.status;
 
@@ -2196,17 +2219,11 @@ function NFLScoresTracker() {
           let awayWinProbability = null;
           let initialHomeWinProbability = null;
           let initialAwayWinProbability = null;
-          let homeMoneyLine = null;
-          let awayMoneyLine = null;
-
-          if (summaryData.pickcenter && summaryData.pickcenter.length > 0 && summaryData.pickcenter[0].moneyline) {
-              if(summaryData.pickcenter[0].moneyline.home && summaryData.pickcenter[0].moneyline.home.close) {
-                  homeMoneyLine = summaryData.pickcenter[0].moneyline.home.close.odds;
-              }
-              if(summaryData.pickcenter[0].moneyline.away && summaryData.pickcenter[0].moneyline.away.close) {
-                  awayMoneyLine = summaryData.pickcenter[0].moneyline.away.close.odds;
-              }
-          }
+          
+          // Fetch odds from new endpoint
+          const oddsData = await fetchOdds(game.id);
+          let homeMoneyLine = oddsData.homeMoneyLine;
+          let awayMoneyLine = oddsData.awayMoneyLine;
 
           const gameStatus = game.status;
 
