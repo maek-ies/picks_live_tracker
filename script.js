@@ -1715,7 +1715,8 @@ function ConfidencePicksSummaryTable({ games, showDisagreement }) {
                         game.aggPick ? React.createElement("img", {
                           src: `https://a.espncdn.com/i/teamlogos/nfl/500/${game.aggPick.toLowerCase()}.png`,
                           alt: game.aggPick,
-                          className: "w-8 h-8 mx-auto"
+                          className: "w-8 h-8 mx-auto",
+                          onError: (e) => { e.target.src = 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nfl.png?w=100&h=100&transparent=true'; }
                         }) : React.createElement("div", { className: "w-8 h-8 mx-auto" }, "-"),
                         React.createElement("div", { className: "text-xs text-slate-400 mt-1" }, aggPickWP ? `${aggPickWP.toFixed(1)}%` : "N/A"),
                         showDisagreement === 'wp' && game.modelDisagreement !== null && React.createElement("div", { className: "text-xs text-slate-400 mt-1" }, `(${game.modelDisagreement.toFixed(1)}%)`),
@@ -1730,7 +1731,8 @@ function ConfidencePicksSummaryTable({ games, showDisagreement }) {
                         game.fpiPick ? React.createElement("img", {
                           src: `https://a.espncdn.com/i/teamlogos/nfl/500/${game.fpiPick.toLowerCase()}.png`,
                           alt: game.fpiPick,
-                          className: "w-8 h-8 mx-auto"
+                          className: "w-8 h-8 mx-auto",
+                          onError: (e) => { e.target.src = 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nfl.png?w=100&h=100&transparent=true'; }
                         }) : React.createElement("div", { className: "w-8 h-8 mx-auto" }, "-"),
                         React.createElement("span", { className: "text-xs text-slate-400 mt-1" }, fpiPickWP ? `${fpiPickWP.toFixed(1)}%` : "N/A")
                       )
@@ -1743,7 +1745,8 @@ function ConfidencePicksSummaryTable({ games, showDisagreement }) {
                         game.mlPick ? React.createElement("img", {
                           src: `https://a.espncdn.com/i/teamlogos/nfl/500/${game.mlPick.toLowerCase()}.png`,
                           alt: game.mlPick,
-                          className: "w-8 h-8 mx-auto"
+                          className: "w-8 h-8 mx-auto",
+                          onError: (e) => { e.target.src = 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nfl.png?w=100&h=100&transparent=true'; }
                         }) : React.createElement("div", { className: "w-8 h-8 mx-auto" }, "-"),
                         React.createElement("span", { className: "text-xs text-slate-400 mt-1" }, mlPickWP ? `${(mlPickWP * 100).toFixed(1)}%` : "N/A")
                       )
@@ -2953,7 +2956,8 @@ function NFLScoresTracker() {
                                                         React.createElement("img", {
                                                           src: `https://a.espncdn.com/i/teamlogos/nfl/500/${pickAbbr.toLowerCase()}.png`,
                                                           alt: detail.pick,
-                                                          className: "w-6 h-6 mx-auto"
+                                                          className: "w-6 h-6 mx-auto",
+                                                          onError: (e) => { e.target.src = 'https://a.espncdn.com/combiner/i?img=/i/teamlogos/leagues/500/nfl.png?w=100&h=100&transparent=true'; }
                                                         }) :
                                                         React.createElement("div", { }, pickAbbr || ''),
                                                       React.createElement("div", { className: `text-xs ${
