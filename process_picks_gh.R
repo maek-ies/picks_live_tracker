@@ -438,7 +438,7 @@ dt_picks = merge(games,picks[,.(week,game_name,name,
 dt_picks[!is.na(picked),n:=.N,by=game_id][n>=1&n<4]
 dt_picks[,n:=mean(n,na.rm=T),by=game_id]
 dt_picks[n>=1&n<4&is.na(picked),picked:='NFL']
-dt_picks[n>=1&n<4&order(game_id)&is.na(confidence),confidence:=1:.N,by=name]
+dt_picks[n>=1&n<4&order(game_id)&is.na(confidence),confidence:=1:.N,by=.(name,week)]
 dt_picks[,n:=NULL]
 
 
