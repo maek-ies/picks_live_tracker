@@ -410,7 +410,7 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
         // X-axis
         React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: plotAreaWidth + padding, y2: chartHeight - padding, stroke: "#64748b" }),
         weeks.map(week => (
-          React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, week === 18.5 ? "Div" : `W${week}`)
+          React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, week === 18.5 ? "Div" : `${week}`)
         )),
 
         // Y-axis
@@ -828,7 +828,7 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
           // X-axis
           React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: plotAreaWidth + padding, y2: chartHeight - padding, stroke: "#64748b" }),
           weeks.map(week => (
-            React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, `W${week}`)
+            React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, week === 18.5 ? "Div" : `${week}`)
           )),
 
           // Y-axis
