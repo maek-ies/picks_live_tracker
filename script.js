@@ -207,6 +207,18 @@ const PLAYOFF_MAX_POINTS = {
   22: 21  // 21
 };
 
+const DIVISION_WINNER_DATA = [
+  { division: "AFC East", winner: "NE", picks: { Honza: "BUF", "Jirka L": "BUF", "Jirka P": "BUF", Marek: "BUF" } },
+  { division: "AFC North", winner: "PIT", picks: { Honza: "BAL", "Jirka L": "BAL", "Jirka P": "PIT", Marek: "PIT" } },
+  { division: "AFC South", winner: "JAX", picks: { Honza: "IND", "Jirka L": "JAX", "Jirka P": "IND", Marek: "IND" } },
+  { division: "AFC West", winner: "DEN", picks: { Honza: "KC", "Jirka L": "KC", "Jirka P": "DEN", Marek: "KC" } },
+  { division: "NFC East", winner: "PHI", picks: { Honza: "PHI", "Jirka L": "PHI", "Jirka P": "PHI", Marek: "PHI" } },
+  { division: "NFC North", winner: "CHI", picks: { Honza: "DET", "Jirka L": "DET", "Jirka P": "DET", Marek: "DET" } },
+  { division: "NFC South", winner: "CAR", picks: { Honza: "TB", "Jirka L": "TB", "Jirka P": "TB", Marek: "TB" } },
+  { division: "NFC West", winner: "SEA", picks: { Honza: "SEA", "Jirka L": "LAR", "Jirka P": "SEA", Marek: "LAR" } },
+  { division: "Total", winner: "Total", picks: { Honza: 10, "Jirka L": 10, "Jirka P": 20, Marek: 10 } }
+];
+
 const getMaxPointsForWeek = (weekNum, numGames, numGotwGames) => {
   if (PLAYOFF_MAX_POINTS[weekNum]) {
     return PLAYOFF_MAX_POINTS[weekNum] + (numGotwGames * 5);
@@ -398,7 +410,7 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
         // X-axis
         React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: plotAreaWidth + padding, y2: chartHeight - padding, stroke: "#64748b" }),
         weeks.map(week => (
-          React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, `W${week}`)
+          React.createElement("text", { key: week, x: xScale(week), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, week === 18.5 ? "Div" : `W${week}`)
         )),
 
         // Y-axis
@@ -531,7 +543,7 @@ function WeeklyPointsTable({ confidenceResults, weeks: allWeeks, gamesOfTheWeek,
                 React.createElement("tbody", null,
                     sortedWeeks.map(week => (
                         React.createElement("tr", { key: week, className: "border-b border-slate-700/50 hover:bg-slate-700/20" },
-                            React.createElement("td", { className: "px-1 py-1 text-white font-semibold" }, `Week ${week}`),
+                            React.createElement("td", { className: "px-1 py-1 text-white font-semibold" }, week === 18.5 ? "Division Winners" : `Week ${week}`),
                             players.map(player => {
                                 let displayValue;
                                 switch (pointsPerWeekDisplayMode) {
@@ -953,7 +965,7 @@ function CumulativePointsTable({ confidenceResults }) {
                 React.createElement("tbody", null,
                     sortedWeeks.map(week => (
                         React.createElement("tr", { key: week, className: "border-b border-slate-700/50 hover:bg-slate-700/20" },
-                            React.createElement("td", { className: "px-1 py-1 text-white font-semibold" }, `Week ${week}`),
+                            React.createElement("td", { className: "px-1 py-1 text-white font-semibold" }, week === 18.5 ? "Division Winners" : `Week ${week}`),
                             players.map(player => (
                                 React.createElement("td", { key: player, className: "px-1 py-1 text-center text-slate-300" }, 
                                     confidenceResults[player].pointsPerWeek.find(d => d.week === week)?.relativePoints || 0
@@ -1131,6 +1143,47 @@ function GamesOfTheWeekPointsTable({ allPicks, confidenceResults, weeks, gamesOf
                                 }
 
                                 return React.createElement("td", { key: player, className: "px-1 py-1 text-center text-slate-300" }, points);
+                            })
+                        )
+                    ))
+                )
+            )
+        )
+    );
+}
+
+function DivisionWinnerPointsTable() {
+    const players = ["Honza", "Jirka L", "Jirka P", "Marek"];
+    return (
+        React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden mt-6" },
+            React.createElement("h2", { className: "text-xl font-bold text-white mb-4 p-6" }, "Division Winner Picks"),
+            React.createElement("table", { className: "w-full" },
+                React.createElement("thead", null,
+                    React.createElement("tr", { className: "bg-slate-700/50 border-b border-slate-700" },
+                        React.createElement("th", { className: "px-4 py-3 text-left text-white font-semibold text-sm" }, "Division"),
+                        React.createElement("th", { className: "px-4 py-3 text-left text-white font-semibold text-sm" }, "Winner"),
+                        players.map(player => 
+                            React.createElement("th", { key: player, className: "px-4 py-3 text-center text-white font-semibold text-sm" }, player)
+                        )
+                    )
+                ),
+                React.createElement("tbody", null,
+                    DIVISION_WINNER_DATA.map((row, index) => (
+                        React.createElement("tr", { key: index, className: "border-b border-slate-700/50 hover:bg-slate-700/20" },
+                            React.createElement("td", { className: "px-4 py-3 text-white" }, row.division),
+                            React.createElement("td", { className: "px-4 py-3 text-white font-bold" }, row.winner),
+                            players.map(player => {
+                                const pick = row.picks[player];
+                                const isCorrect = row.winner !== "Total" && pick === row.winner;
+                                const isTotalRow = row.division === "Total";
+                                
+                                return React.createElement("td", { 
+                                    key: player, 
+                                    className: `px-4 py-3 text-center ${
+                                        isTotalRow ? 'text-yellow-400 font-bold' : 
+                                        isCorrect ? 'text-green-400 font-semibold' : 'text-slate-400'
+                                    }`
+                                }, pick);
                             })
                         )
                     ))
@@ -2417,15 +2470,38 @@ function NFLScoresTracker() {
     });
 
     // 3. Finalize results - Step 1: Calculate cumulative points for all players
+    const divWinnerTotals = DIVISION_WINNER_DATA.find(d => d.division === "Total").picks;
+
     playerNames.forEach(player => {
       const pointsPerWeekArray = Array.from(results[player].pointsPerWeekMap.values()).sort((a, b) => a.week - b.week);
       
       let cumulativePoints = 0;
-      pointsPerWeekArray.forEach(weekInfo => {
+      const divPoints = Number(divWinnerTotals[player]) || 0;
+
+      // Regular season weeks
+      pointsPerWeekArray.filter(w => w.week <= 18).forEach(weekInfo => {
           cumulativePoints += weekInfo.points;
           results[player].pointsPerWeek.push({ ...weekInfo, cumulativePoints });
           results[player].correctPicksPerWeek.push({ week: weekInfo.week, correctPicks: weekInfo.correctPicks });
       });
+
+      // Inject Division Winner points as Week 18.5
+      cumulativePoints += divPoints;
+      results[player].pointsPerWeek.push({ 
+          week: 18.5, 
+          points: divPoints, 
+          cumulativePoints: cumulativePoints,
+          correctPicks: 0 
+      });
+
+      // Playoff weeks
+      pointsPerWeekArray.filter(w => w.week >= 19).forEach(weekInfo => {
+          cumulativePoints += weekInfo.points;
+          results[player].pointsPerWeek.push({ ...weekInfo, cumulativePoints });
+          results[player].correctPicksPerWeek.push({ week: weekInfo.week, correctPicks: weekInfo.correctPicks });
+      });
+
+      results[player].total += divPoints;
 
       delete results[player].pointsPerWeekMap;
     });
@@ -2779,7 +2855,13 @@ function NFLScoresTracker() {
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'gotw-points' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "GotW Points")
+              }, "GotW Points"),
+              React.createElement("button", {
+                onClick: () => setActiveChartTab('div-winner-points'),
+                className: `px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeChartTab === 'div-winner-points' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                }`
+              }, "Div. W")
             ),
             activeChartTab === 'week-points' && React.createElement("div", { className: "relative chart-wrapper mt-1" },
               React.createElement("div", { className: "absolute top-4 right-4 z-10" },
@@ -2831,6 +2913,9 @@ function NFLScoresTracker() {
                               includeLiveGames: includeLiveGames,
                               gotwDisplayMode: gotwDisplayMode
                             }),              React.createElement(GamesOfTheWeekPointsTable, { allPicks: allPlayerPicks, confidenceResults: confidenceResults, weeks: weeks, gamesOfTheWeek: gamesOfTheWeek, includeLiveGames: includeLiveGames })
+            ),
+            activeChartTab === 'div-winner-points' && React.createElement("div", { className: "chart-wrapper" },
+              React.createElement(DivisionWinnerPointsTable, null)
             )
           )
         ) : activeTab === 'odds' ? (
