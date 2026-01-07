@@ -1,69 +1,3 @@
-// Python script to extract FPI data from ESPN for manual update of fpi_data.json
-/*
-import re
-import json
-
-content = """
-    <PASTE THE ENTIRE HTML CONTENT OF https://www.espn.com/nfl/fpi/_/season/2025 HERE>
-"""
-
-# Extract team names
-team_names_start_idx = content.find("Team\\n") + len("Team\\n")
-team_names_end_idx = content.find("POWER INDEXRANKSW-L-TFPIRKTRENDOFFDEFSTSOSREM SOSAVGWP")
-team_names_block = content[team_names_start_idx:team_names_end_idx].strip()
-team_names = [name.strip() for name in team_names_block.split('\\n') if name.strip()]
-
-# Extract numerical data lines
-data_start_idx = content.find("POWER INDEXRANKSW-L-TFPIRKTRENDOFFDEFSTSOSREM SOSAVGWP") + len("POWER INDEXRANKSW-L-TFPIRKTRENDOFFDEFSTSOSREM SOSAVGWP")
-data_end_idx = content.find("Last Updated:")
-numerical_data_block = content[data_start_idx:data_end_idx].strip()
-numerical_data_lines = [line.strip() for line in numerical_data_block.split('\\n') if line.strip()]
-
-# Regex pattern to parse each numerical data line
-data_pattern = re.compile(
-    r'(\d+-\d+-\d+)\\s+'      # W-L-T (e.g., 5-5-0)
-    r'(-?\\d+\\.\\d+)\\s+'       # FPI (e.g., 7.3, -1.5)
-    r'(\\d+)\\s+'              # Rank (e.g., 1)
-    r'(--|-?\\d+)\\s+'         # Trend (e.g., --, 1, -1)
-    r'(-?\\d+\\.\\d+)\\s+'       # OFF (e.g., 5.4)
-    r'(-?\\d+\\.\\d+)\\s+'       # DEF (e.g., 2.1)
-    r'(-?\\d+\\.\\d+)\\s+'       # STS (e.g., -0.2)
-    r'(\\d+)\\s+'              # SOS (e.g., 6)
-    r'(\\d+)\\s+'              # REM SOS (e.g., 21)
-    r'(\\d+)'                 # AVG WP (e.g., 8)
-)
-
-extracted_data = []
-
-# Pair team names with their corresponding numerical data and parse
-if len(team_names) == len(numerical_data_lines):
-    for i, team_name in enumerate(team_names):
-        data_line = numerical_data_lines[i]
-        match = data_pattern.match(data_line)
-        if match:
-            values = match.groups()
-            team_dict = {
-                'Team': team_name,
-                'W-L-T': values[0],
-                'FPI': float(values[1]),
-                'Rank': int(values[2]),
-                'Trend': values[3],
-                'OFF': float(values[4]),
-                'DEF': float(values[5]),
-                'STS': float(values[6]),
-                'SOS': int(values[7]),
-                'REM SOS': int(values[8]),
-                'AVG WP': int(values[9])
-            }
-            extracted_data.append(team_dict)
-        else:
-            print(f"Warning: Could not parse data line for team '{team_name}': '{data_line}'")
-else:
-    print(f"Error: Mismatch between number of team names ({len(team_names)}) and data lines ({len(numerical_data_lines)}).")
-
-print(json.dumps(extracted_data, indent=2))
-*/
-
 const { useState, useEffect, useCallback } = React;
 
 const convertOddsToProbability = (odds) => {
@@ -266,6 +200,20 @@ const fullTeamNames = Object.entries(teamAbbreviations).reduce((acc, [key, value
   return acc;
 }, {});
 
+const PLAYOFF_MAX_POINTS = {
+  19: 69, // 16+14+12+10+9+8
+  20: 60, // 18+16+14+12
+  21: 33, // 18+15
+  22: 21  // 21
+};
+
+const getMaxPointsForWeek = (weekNum, numGames, numGotwGames) => {
+  if (PLAYOFF_MAX_POINTS[weekNum]) {
+    return PLAYOFF_MAX_POINTS[weekNum] + (numGotwGames * 5);
+  }
+  return (numGames * (numGames + 1) / 2) + (numGotwGames * 5);
+};
+
 function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, gamesOfTheWeek, pointsPerWeekDisplayMode }) {
   const [activePoint, setActivePoint] = useState(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -285,8 +233,8 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
     if (!allWeeks) return result;
     allWeeks.forEach(weekData => {
         const numGames = weekData.games.length;
-        const gotwBonus = weekData.games.some(g => gamesOfTheWeek.includes(g.id)) ? 5 : 0;
-        result[weekData.week] = (numGames * (numGames + 1) / 2) + gotwBonus;
+        const numGotw = weekData.games.filter(g => gamesOfTheWeek.includes(g.id)).length;
+        result[weekData.week] = getMaxPointsForWeek(weekData.week, numGames, numGotw);
     });
     return result;
   }, [allWeeks, gamesOfTheWeek]);
@@ -512,8 +460,8 @@ function WeeklyPointsTable({ confidenceResults, weeks: allWeeks, gamesOfTheWeek,
         if (!allWeeks) return result;
         allWeeks.forEach(weekData => {
             const numGames = weekData.games.length;
-            const gotwBonus = weekData.games.some(g => gamesOfTheWeek.includes(g.id)) ? 5 : 0;
-            result[weekData.week] = (numGames * (numGames + 1) / 2) + gotwBonus;
+            const numGotw = weekData.games.filter(g => gamesOfTheWeek.includes(g.id)).length;
+            result[weekData.week] = getMaxPointsForWeek(weekData.week, numGames, numGotw);
         });
         return result;
     }, [allWeeks, gamesOfTheWeek]);
@@ -1310,8 +1258,8 @@ function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, game
     if (!allWeeks) return result;
     allWeeks.forEach(weekData => {
         const numGames = weekData.games.length;
-        const gotwBonus = weekData.games.filter(g => gamesOfTheWeek.includes(g.id)).length * 5;
-        result[weekData.week] = (numGames * (numGames + 1) / 2) + gotwBonus;
+        const numGotw = weekData.games.filter(g => gamesOfTheWeek.includes(g.id)).length;
+        result[weekData.week] = getMaxPointsForWeek(weekData.week, numGames, numGotw);
     });
     return result;
   }, [allWeeks, gamesOfTheWeek]);
@@ -2091,11 +2039,24 @@ function NFLScoresTracker() {
       setFpiData(fpiDataMap);
 
 
-      const weekPromises = Array.from({ length: 18 }, (_, i) => i + 1).map(weekNum =>
-        fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${weekNum}`)
+      const regularSeasonWeeks = Array.from({ length: 18 }, (_, i) => i + 1).map(weekNum =>
+        fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${weekNum}&seasontype=2`)
           .then(res => res.json())
           .then(data => ({ week: weekNum, games: transformEspnData(data, fpiDataMap) }))
       );
+
+      const postSeasonWeeks = [1, 2, 3, 5].map(postseasonApiWeekNum => { // Skip postseason week 4 (Pro Bowl)
+        // Adjust app week number: 1->19, 2->20, 3->21, 5->22
+        const appWeekNum = postseasonApiWeekNum === 5 ? 22 : postseasonApiWeekNum + 18;
+        return fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${postseasonApiWeekNum}&seasontype=3`)
+          .then(res => res.json())
+          .then(data => {
+             const games = transformEspnData(data, fpiDataMap).filter(g => new Date(g.date).getFullYear() >= 2026);
+             return { week: appWeekNum, games: games };
+          });
+      });
+
+      const weekPromises = [...regularSeasonWeeks, ...postSeasonWeeks];
       const allWeeks = await Promise.all(weekPromises);
       setWeeks(allWeeks);
       if (allWeeks.length > 0 && !selectedWeek) {
@@ -2177,11 +2138,22 @@ function NFLScoresTracker() {
           return summaryGame || game;
         })
       }));
+
       setWeeks(updatedWeeks);
 
+      // Collect all valid Game IDs from the fetched schedule
+      const validGameIds = new Set();
+      updatedWeeks.forEach(w => w.games.forEach(g => validGameIds.add(g.id)));
+
       // When using live data, we still need mock picks
-      const picksResponse = await fetch('picks.json').then(res => res.json());
+      const [picksResponse, playoffPicksText] = await Promise.all([
+        fetch('picks.json').then(res => res.json()),
+        fetch('playoff_picks.csv').then(res => res.ok ? res.text() : "").catch(() => "")
+      ]);
+
       const transformedPicks = {};
+      
+      // Process regular season picks
       picksResponse.forEach(pick => {
         if (!transformedPicks[pick.name]) {
           transformedPicks[pick.name] = [];
@@ -2192,6 +2164,42 @@ function NFLScoresTracker() {
           confidence: pick.confidence
         });
       });
+
+      // Process playoff picks from CSV
+      if (playoffPicksText) {
+        const rows = playoffPicksText.split('\n').filter(row => row.trim() !== '');
+        
+        // Skip header: week,game_name,name,game_id,date,picked,confidence
+        rows.slice(1).forEach((row, index) => {
+          const cols = row.split(',');
+          if (cols.length >= 7) {
+            const name = cols[2]?.trim();
+            const gameId = parseInt(cols[3]);
+            const picked = cols[5]?.trim();
+            const confidence = cols[6]?.trim();
+
+                        if (name && !isNaN(gameId) && picked && confidence) {
+                          if (!transformedPicks[name]) {
+                            transformedPicks[name] = [];
+                          }
+                          
+                          const existingPickIndex = transformedPicks[name].findIndex(p => p.gameId === gameId);
+                          const newPick = {
+                            gameId: gameId,
+                            pick: picked,
+                            confidence: parseInt(confidence)
+                          };
+            
+                          if (existingPickIndex !== -1) {
+                              // Overwrite existing pick (e.g. from picks.json placeholder)
+                              transformedPicks[name][existingPickIndex] = newPick;
+                          } else {
+                              transformedPicks[name].push(newPick);
+                          }
+                        }          }
+        });
+      }
+
       setMockPicks(transformedPicks);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -2208,9 +2216,24 @@ function NFLScoresTracker() {
     setIsRefreshing(true);
     try {
       // 1. Fetch scoreboard for the selected week
-      const weekResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${weekNumber}`);
+      let url;
+      let espnApiWeekNum;
+      if (weekNumber >= 19 && weekNumber <= 21) { // Postseason weeks 19, 20, 21 (Wild Card, Divisional, Conference)
+        espnApiWeekNum = weekNumber - 18; // Map 19->1, 20->2, 21->3
+        url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${espnApiWeekNum}&seasontype=3`;
+      } else if (weekNumber === 22) { // Super Bowl (mapped from API postseason week 5)
+        espnApiWeekNum = 5;
+        url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${espnApiWeekNum}&seasontype=3`;
+      }
+      else { // Regular season weeks
+        espnApiWeekNum = weekNumber;
+        url = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${espnApiWeekNum}&seasontype=2`;
+      }
+
+
+      const weekResponse = await fetch(url);
       const data = await weekResponse.json();
-      const refreshedGames = transformEspnData(data, fpiData);
+      const refreshedGames = transformEspnData(data, fpiData); // Removed strict year filter
 
       // 2. Fetch summary data for games in that week
       const gamesWithSummaryPromises = refreshedGames.map(async (game) => {
@@ -2333,6 +2356,7 @@ function NFLScoresTracker() {
       weekData.games.forEach(game => {
         playerNames.forEach(player => {
           const pick = results[player].details.find(p => p.gameId === game.id);
+          
           if (!pick) return;
 
           const isComplete = game.status === 'final' || game.status === 'post';
@@ -2419,7 +2443,7 @@ function NFLScoresTracker() {
 
         const numGamesInWeek = weekData.games.length;
         const numGotwGames = weekData.games.filter(g => gamesOfTheWeek.includes(g.id)).length;
-        const maxPossiblePointsInWeek = (numGamesInWeek * (numGamesInWeek + 1) / 2) + (numGotwGames * 5);
+        const maxPossiblePointsInWeek = getMaxPointsForWeek(weekData.week, numGamesInWeek, numGotwGames);
 
         const playedGameIds = weekData.games
             .filter(g => {
@@ -2476,7 +2500,7 @@ function NFLScoresTracker() {
       if (currentWeekData) {
         const numGamesInWeek = currentWeekData.games.length;
         const numGotwGames = currentWeekData.games.filter(g => gamesOfTheWeek.includes(g.id)).length;
-        const maxPossiblePointsInWeek = (numGamesInWeek * (numGamesInWeek + 1) / 2) + (numGotwGames * 5);
+        const maxPossiblePointsInWeek = getMaxPointsForWeek(currentWeekData.week, numGamesInWeek, numGotwGames);
         
         const playedGameIds = currentWeekData.games
           .filter(g => {
