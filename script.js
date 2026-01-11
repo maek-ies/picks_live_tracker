@@ -1199,6 +1199,194 @@ function DivisionWinnerPointsTable() {
     );
 }
 
+function PlayoffPointsChart({ confidenceResults, allPicks, weeks, gamesOfTheWeek, includeLiveGames, playoffsDisplayMode }) {
+    const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsMobile(window.innerWidth < 768);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const players = Object.keys(confidenceResults);
+
+    const chartData = React.useMemo(() => {
+        let data = players.map(player => {
+            let value;
+            const playoffWeeks = [19, 20, 21, 22];
+            const playedPlayoffGames = weeks
+                .filter(w => playoffWeeks.includes(w.week))
+                .flatMap(w => w.games)
+                .filter(g => (g.status === 'final' || g.status === 'post' || (includeLiveGames && (g.status === 'in' || g.status === 'live'))));
+
+            switch (playoffsDisplayMode) {
+                case 'points_percentage':
+                    const possiblePoints = playedPlayoffGames.reduce((acc, game) => {
+                        const pick = allPicks[player]?.find(p => p.gameId === game.id);
+                        let conf = pick ? Number(pick.confidence) : 0;
+                        if (gamesOfTheWeek.includes(game.id)) conf += 5;
+                        return acc + conf;
+                    }, 0);
+                    const actualPoints = confidenceResults[player].pointsPerWeek
+                        .filter(p => playoffWeeks.includes(p.week))
+                        .reduce((acc, p) => acc + p.points, 0);
+                    value = possiblePoints > 0 ? (actualPoints / possiblePoints) * 100 : 0;
+                    break;
+                case 'correct_percentage':
+                    const correctPicks = playedPlayoffGames.filter(game => {
+                        const pick = allPicks[player]?.find(p => p.gameId === game.id);
+                        if (!pick) return false;
+                        const pickAbbreviation = teamAbbreviations[pick.pick] || pick.pick;
+                        return pickAbbreviation === game.winner;
+                    }).length;
+                    value = playedPlayoffGames.length > 0 ? (correctPicks / playedPlayoffGames.length) * 100 : 0;
+                    break;
+                case 'absolute':
+                default:
+                    value = confidenceResults[player].pointsPerWeek
+                        .filter(p => playoffWeeks.includes(p.week))
+                        .reduce((acc, p) => acc + p.points, 0);
+                    break;
+            }
+            return { player, value };
+        });
+
+        // Sort data
+        data.sort((a, b) => b.value - a.value);
+        return data;
+
+    }, [confidenceResults, allPicks, weeks, gamesOfTheWeek, includeLiveGames, playoffsDisplayMode, players]);
+
+    const maxPoints = playoffsDisplayMode === 'absolute' ? Math.max(1, ...chartData.map(d => d.value)) : 100;
+
+    const chartWidth = 800;
+    const chartHeight = isMobile ? 800 : 400;
+    const padding = 50;
+
+    const xScale = (index) => padding + index * (chartWidth - 2 * padding) / (chartData.length - 1);
+    const yScale = (points) => chartHeight - padding - (points / maxPoints) * (chartHeight - 2 * padding);
+
+    const colors = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#a855f7", "#F0E442"];
+
+    return (
+        React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 p-6 mt-6" },
+            React.createElement("svg", {
+                viewBox: `0 0 ${chartWidth} ${chartHeight}`,
+                className: "w-full h-auto"
+            },
+                // X-axis
+                React.createElement("line", { x1: padding, y1: chartHeight - padding, x2: chartWidth - padding, y2: chartHeight - padding, stroke: "#64748b" }),
+                chartData.map(({ player }, index) => (
+                    React.createElement("text", { key: player, x: xScale(index), y: chartHeight - padding + 20, fill: "#94a3b8", textAnchor: "middle", className: "chart-text" }, player)
+                )),
+
+                // Bars
+                chartData.map(({ player, value }, index) => {
+                    const barWidth = (chartWidth - 2 * padding) / chartData.length / 2;
+                    const barX = xScale(index) - barWidth / 2;
+                    const barHeight = chartHeight - padding - yScale(value);
+                    const barY = yScale(value);
+
+                    return (
+                        React.createElement("g", { key: player },
+                            React.createElement("rect", {
+                                x: barX,
+                                y: barY,
+                                width: barWidth,
+                                height: barHeight,
+                                fill: colors[index % colors.length],
+                                rx: 4
+                            }),
+                            React.createElement("text", {
+                                x: barX + barWidth / 2,
+                                y: barY - 5,
+                                fill: "#fff",
+                                textAnchor: "middle",
+                                className: "chart-text"
+                            }, playoffsDisplayMode === 'absolute' ? Math.round(value) : `${value.toFixed(1)}%`)
+                        )
+                    );
+                })
+            )
+        )
+    );
+}
+
+function PlayoffPointsTable({ allPicks, confidenceResults, weeks, gamesOfTheWeek, includeLiveGames }) {
+    const players = Object.keys(confidenceResults);
+
+    const playoffWeeks = [19, 20, 21, 22];
+    const playoffGames = weeks.flatMap(weekData =>
+        weekData.games
+            .filter(game => playoffWeeks.includes(weekData.week))
+            .map(game => ({ ...game, week: weekData.week }))
+    );
+
+    return (
+        React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden mt-6" },
+            React.createElement("h2", { className: "text-xl font-bold text-white mb-4 p-6" }, "Playoff Points Details"),
+            React.createElement("table", { className: "w-full" },
+                React.createElement("thead", null,
+                    React.createElement("tr", { className: "bg-slate-700/50 border-b border-slate-700" },
+                        React.createElement("th", { className: "px-1 py-1 text-left text-white font-semibold text-sm sticky top-0 bg-slate-800 z-10" }, "Week"),
+                        React.createElement("th", { className: "px-1 py-1 text-left text-white font-semibold text-sm sticky top-0 bg-slate-800 z-10" }, "Game"),
+                        players.map(player =>
+                            React.createElement("th", { key: player, className: "px-1 py-1 text-center text-white font-semibold text-sm sticky top-0 bg-slate-800 z-10" }, player)
+                        )
+                    )
+                ),
+                React.createElement("tbody", null,
+                    playoffGames.map(game => (
+                        React.createElement("tr", { key: game.id, className: "border-b border-slate-700/50 hover:bg-slate-700/20" },
+                            React.createElement("td", { className: "px-1 py-1 text-white" }, game.week),
+                            React.createElement("td", { className: "px-1 py-1 text-white" }, `${game.away} @ ${game.home}`),
+                            players.map(player => {
+                                const playerPicks = allPicks[player];
+                                const pick = playerPicks?.find(p => p.gameId === game.id);
+                                if (!pick) return React.createElement("td", { key: player, className: "px-1 py-1 text-center text-slate-300" }, "-");
+
+                                const isComplete = game.status === 'final' || game.status === 'post';
+                                const isLiveGame = includeLiveGames && (game.status === 'in' || game.status === 'live');
+
+                                let winner = null;
+                                if (isComplete) {
+                                    winner = game.winner;
+                                } else if (includeLiveGames && isLiveGame) {
+                                    if (game.homeScore > game.awayScore) winner = game.home;
+                                    else if (game.awayScore > game.homeScore) winner = game.away;
+                                }
+
+                                const pickAbbreviation = teamAbbreviations[pick.pick] || pick.pick;
+                                const isCorrect = winner === pickAbbreviation;
+
+                                let points = 0;
+                                if ((isComplete || (includeLiveGames && isLiveGame)) && isCorrect) {
+                                    points = Number(pick.confidence);
+                                    if (gamesOfTheWeek.includes(game.id)) points += 5;
+                                }
+
+                                return React.createElement("td", { key: player, className: "px-1 py-1 text-center text-slate-300" }, points);
+                            })
+                        )
+                    )),
+                    // Summary row
+                    React.createElement("tr", { className: "bg-slate-700/30 font-bold" },
+                        React.createElement("td", { colSpan: 2, className: "px-1 py-2 text-white text-right" }, "Total:"),
+                        players.map(player => {
+                            const playoffTotal = confidenceResults[player].pointsPerWeek
+                                .filter(p => playoffWeeks.includes(p.week))
+                                .reduce((acc, p) => acc + p.points, 0);
+                            return React.createElement("td", { key: player, className: "px-1 py-2 text-center text-yellow-400" }, Math.round(playoffTotal));
+                        })
+                    )
+                )
+            )
+        )
+    );
+}
+
 function WeeklyBarChart({ confidenceResults, selectedWeek, weeks: allWeeks, gamesOfTheWeek, weekPointsDisplayMode }) {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const chartRef = React.useRef(null);
@@ -1938,6 +2126,7 @@ function NFLScoresTracker() {
       const [fpiData, setFpiData] = useState({});
       const [matchupQualitySortConfig, setMatchupQualitySortConfig] = useState({ key: null, direction: 'ascending' });    
       const [weekPointsDisplayMode, setWeekPointsDisplayMode] = useState('absolute');
+      const [playoffsDisplayMode, setPlayoffsDisplayMode] = useState('absolute');
       const weekOverviewRef = React.useRef(null);
 
       const downloadOverview = () => {
@@ -2844,31 +3033,37 @@ function NFLScoresTracker() {
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'week-points' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "Week Points"),
+              }, "Current Week"),
               React.createElement("button", {
                 onClick: () => setActiveChartTab('cumulative-points'),
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'cumulative-points' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "Points vs. Leader"),
+              }, "Vs. Leader"),
               React.createElement("button", {
                 onClick: () => setActiveChartTab('points-per-week'),
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'points-per-week' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "Points per Week"),
+              }, "By Week"),
               React.createElement("button", {
                 onClick: () => setActiveChartTab('gotw-points'),
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'gotw-points' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "GotW Points"),
+              }, "GotW"),
               React.createElement("button", {
                 onClick: () => setActiveChartTab('div-winner-points'),
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'div-winner-points' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "Div. W")
+              }, "Div. W"),
+              React.createElement("button", {
+                onClick: () => setActiveChartTab('playoffs'),
+                className: `px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeChartTab === 'playoffs' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+                }`
+              }, "Playoffs")
             ),
             activeChartTab === 'week-points' && React.createElement("div", { className: "relative chart-wrapper mt-1" },
               React.createElement("div", { className: "absolute top-4 right-4 z-10" },
@@ -2923,6 +3118,33 @@ function NFLScoresTracker() {
             ),
             activeChartTab === 'div-winner-points' && React.createElement("div", { className: "chart-wrapper" },
               React.createElement(DivisionWinnerPointsTable, null)
+            ),
+            activeChartTab === 'playoffs' && React.createElement("div", { className: "relative chart-wrapper mt-1" },
+              React.createElement("div", { className: "absolute top-4 right-4 z-10" },
+                React.createElement("button", {
+                  onClick: () => {
+                    const modes = ['absolute', 'points_percentage', 'correct_percentage'];
+                    const nextIndex = (modes.indexOf(playoffsDisplayMode) + 1) % modes.length;
+                    setPlayoffsDisplayMode(modes[nextIndex]);
+                  },
+                  className: "px-4 py-2 rounded-lg font-medium transition-colors bg-slate-700/50 text-slate-300 hover:bg-slate-700"
+                }, `${playoffsDisplayMode.replace('_', ' ')}`)
+              ),
+              React.createElement(PlayoffPointsChart, { 
+                confidenceResults: confidenceResults,
+                allPicks: allPlayerPicks,
+                weeks: weeks,
+                gamesOfTheWeek: gamesOfTheWeek,
+                includeLiveGames: includeLiveGames,
+                playoffsDisplayMode: playoffsDisplayMode
+              }),
+              React.createElement(PlayoffPointsTable, { 
+                allPicks: allPlayerPicks, 
+                confidenceResults: confidenceResults, 
+                weeks: weeks, 
+                gamesOfTheWeek: gamesOfTheWeek, 
+                includeLiveGames: includeLiveGames 
+              })
             )
           )
         ) : activeTab === 'odds' ? (
