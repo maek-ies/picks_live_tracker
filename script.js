@@ -302,7 +302,10 @@ function WeeklyPointsChart({ confidenceResults, selectedWeek, weeks: allWeeks, g
   const rightMargin = 70;
 
   const plotAreaWidth = chartWidth - padding - rightMargin;
-  const xScale = (week) => padding + (week - 1) * (plotAreaWidth) / (weeks.length > 1 ? weeks.length - 1 : 1);
+  const xScale = (week) => {
+    const index = weeks.indexOf(week);
+    return padding + index * (plotAreaWidth) / (weeks.length > 1 ? weeks.length - 1 : 1);
+  };
   const yScale = (points) => chartHeight - padding - ((points - chartMin) / (chartMax - chartMin)) * (chartHeight - 2 * padding);
 
   const colors = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#a855f7", "#F0E442"];
@@ -718,7 +721,10 @@ function CumulativePointsChart({ confidenceResults, selectedWeek }) {
   const rightMargin = 70;
 
   const plotAreaWidth = chartWidth - padding - rightMargin;
-  const xScale = (week) => padding + (week - 1) * (plotAreaWidth) / (weeks.length > 1 ? weeks.length - 1 : 1);
+  const xScale = (week) => {
+    const index = weeks.indexOf(week);
+    return padding + index * (plotAreaWidth) / (weeks.length > 1 ? weeks.length - 1 : 1);
+  };
   const yScale = (points) => chartHeight - padding - ((points - chartMin) / (chartMax - chartMin)) * (chartHeight - 2 * padding);
 
   const colors = ["#3b82f6", "#ef4444", "#22c55e", "#f97316", "#a855f7", "#F0E442"];
@@ -2507,10 +2513,12 @@ function NFLScoresTracker() {
     });
 
     // 3. Finalize results - Step 2: Calculate leader points for each week
+    const allUniqueWeeks = [...new Set(playerNames.flatMap(p => results[p].pointsPerWeek.map(pw => pw.week)))].sort((a, b) => a - b);
+    
     const leaderPointsPerWeek = {};
-    weeks.forEach(weekData => {
-      const leaderPoints = Math.max(...playerNames.map(p => results[p].pointsPerWeek.find(pw => pw.week === weekData.week)?.cumulativePoints || 0));
-      leaderPointsPerWeek[weekData.week] = leaderPoints;
+    allUniqueWeeks.forEach(weekNum => {
+      const leaderPoints = Math.max(...playerNames.map(p => results[p].pointsPerWeek.find(pw => pw.week === weekNum)?.cumulativePoints || 0));
+      leaderPointsPerWeek[weekNum] = leaderPoints;
     });
 
     const getRemainingPotentialForWeek = (player, weekNum, allPlayerPicks, weeks, gamesOfTheWeek, includeLiveGames) => {
@@ -2545,8 +2553,7 @@ function NFLScoresTracker() {
     };
 
     const potentialLeaderPointsPerWeek = {};
-    weeks.forEach(weekData => {
-        const weekNum = weekData.week;
+    allUniqueWeeks.forEach(weekNum => {
         let maxPotentialPoints = -Infinity;
 
         playerNames.forEach(player => {
