@@ -51,7 +51,19 @@ const fetchOdds = async (gameId) => {
     return { homeMoneyLine: null, awayMoneyLine: null };
 };
 
-const calculateGameConfidence = (games) => {
+const calculateGameConfidence = (games, weekNum) => {
+  const getConfidenceForRank = (rank, totalGames, weekNum) => {
+    const values = PLAYOFF_CONFIDENCE_VALUES[weekNum];
+    if (values) {
+      // rank is 1-based, index is 0-based
+      // If there are fewer games than expected, we take the top values from the array
+      // e.g. if 4 games in week 19, we want the last 4 values: [10, 12, 14, 16]
+      const startIndex = values.length - totalGames;
+      return values[startIndex + (rank - 1)] || rank;
+    }
+    return rank;
+  };
+
   let processedGames = games.map(game => {
     const homeWP = game.initialHomeWinProbability ?? game.homeWinProbability;
     const awayWP = game.initialAwayWinProbability ?? game.awayWinProbability;
@@ -104,21 +116,21 @@ const calculateGameConfidence = (games) => {
   const rankedByFpi = [...processedGames].sort((a, b) => a.absDiff - b.absDiff);
   const fpiRanks = {};
   rankedByFpi.forEach((game, index) => {
-    fpiRanks[game.id] = game.absDiff === -1 ? Infinity : index + 1;
+    fpiRanks[game.id] = game.absDiff === -1 ? Infinity : getConfidenceForRank(index + 1, rankedByFpi.length, weekNum);
   });
 
   // Create ranks for mlConfidence
   const rankedByMl = [...processedGames].sort((a, b) => a.absMlDiff - b.absMlDiff);
   const mlRanks = {};
   rankedByMl.forEach((game, index) => {
-    mlRanks[game.id] = game.absMlDiff === -1 ? Infinity : index + 1;
+    mlRanks[game.id] = game.absMlDiff === -1 ? Infinity : getConfidenceForRank(index + 1, rankedByMl.length, weekNum);
   });
 
   // Create ranks for aggConfidence
   const rankedByAgg = [...processedGames].sort((a, b) => a.aggAbsDiff - b.aggAbsDiff);
   const aggRanks = {};
   rankedByAgg.forEach((game, index) => {
-    aggRanks[game.id] = game.aggAbsDiff === -1 ? Infinity : index + 1;
+    aggRanks[game.id] = game.aggAbsDiff === -1 ? Infinity : getConfidenceForRank(index + 1, rankedByAgg.length, weekNum);
   });
 
   processedGames = processedGames.map(game => ({
@@ -205,6 +217,13 @@ const PLAYOFF_MAX_POINTS = {
   20: 60, // 18+16+14+12
   21: 33, // 18+15
   22: 21  // 21
+};
+
+const PLAYOFF_CONFIDENCE_VALUES = {
+  19: [8, 9, 10, 12, 14, 16],
+  20: [12, 14, 16, 18],
+  21: [15, 18],
+  22: [21]
 };
 
 const DIVISION_WINNER_DATA = [
@@ -1326,7 +1345,7 @@ function PlayoffPointsTable({ allPicks, confidenceResults, weeks, gamesOfTheWeek
 
     return (
         React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden mt-6" },
-            React.createElement("h2", { className: "text-xl font-bold text-white mb-4 p-6" }, "Playoff Points Details"),
+            React.createElement("h2", { className: "text-xl font-bold text-white mb-4 p-6" }, "Play offs Points Details"),
             React.createElement("table", { className: "w-full" },
                 React.createElement("thead", null,
                     React.createElement("tr", { className: "bg-slate-700/50 border-b border-slate-700" },
@@ -1969,7 +1988,7 @@ function OddsTable({ weeks, selectedWeek, showDisagreement, setShowDisagreement 
   }
 
   const sortedGames = React.useMemo(() => {
-    let sortableGames = calculateGameConfidence([...weekData.games]);
+    let sortableGames = calculateGameConfidence([...weekData.games], weekData.week);
 
     if (sortConfig.key !== null) {
       sortableGames.sort((a, b) => {
@@ -2887,7 +2906,7 @@ function NFLScoresTracker() {
     const mlPlayerPicks = [];
 
     weeks.forEach(weekData => {
-      const gamesWithConfidence = calculateGameConfidence(weekData.games);
+      const gamesWithConfidence = calculateGameConfidence(weekData.games, weekData.week);
       gamesWithConfidence.forEach(game => {
         if (game.fpiPick && isFinite(game.fpiConfidence)) {
           fpiPlayerPicks.push({
@@ -3063,7 +3082,7 @@ function NFLScoresTracker() {
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'playoffs' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "Playoffs")
+              }, "Play offs")
             ),
             activeChartTab === 'week-points' && React.createElement("div", { className: "relative chart-wrapper mt-1" },
               React.createElement("div", { className: "absolute top-4 right-4 z-10" },
