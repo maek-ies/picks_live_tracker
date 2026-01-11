@@ -1127,7 +1127,7 @@ function GamesOfTheWeekPointsTable({ allPicks, confidenceResults, weeks, gamesOf
 
     return (
         React.createElement("div", { className: "bg-slate-800/50 rounded-lg border border-slate-700 overflow-hidden mt-6" },
-            React.createElement("h2", { className: "text-xl font-bold text-white mb-4 p-6" }, "GotW Points Details"),
+            React.createElement("h2", { className: "text-xl font-bold text-white mb-4 p-6" }, "G of W Points Details"),
             React.createElement("table", { className: "w-full" },
                 React.createElement("thead", null,
                     React.createElement("tr", { className: "bg-slate-700/50 border-b border-slate-700" },
@@ -3070,7 +3070,7 @@ function NFLScoresTracker() {
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
                   activeChartTab === 'gotw-points' ? 'bg-blue-600 text-white' : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
                 }`
-              }, "GotW"),
+              }, "G of W"),
               React.createElement("button", {
                 onClick: () => setActiveChartTab('div-winner-points'),
                 className: `px-4 py-2 rounded-lg font-medium transition-colors ${
